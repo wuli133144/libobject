@@ -119,6 +119,12 @@ static int __set(Inet_Tcp_Socket *socket, char *attrib, void *value)
         socket->set_timeout = value;
     } else if (strcmp(attrib, "get_socketfd") == 0) {
         socket->get_socketfd = value;
+    } else if (strcmp(attrib, "setnonblocking") == 0) {
+        socket->setnonblocking = value;
+    } else if (strcmp(attrib, "setsockopt") == 0) {
+        socket->setsockopt = value;
+    } else if (strcmp(attrib, "getsockopt") == 0) {
+        socket->getsockopt = value;
     } 
     else {
         dbg_str(NET_DETAIL, "socket set, not support %s setting", attrib);
@@ -168,29 +174,72 @@ static int __accept_fd(Inet_Tcp_Socket*socket,
     return accept(so->parent.fd, (struct sockaddr *)&cliaddr, &len);
 }
 
+static void __setblock(Inet_Tcp_Socket *socket,int ihow)
+{
+    dbg_str(DBG_SUC,"Inet_Tcp_Socket setblock success");
+    return ;
+}
+
+static int __inet_tcp_connect_internal(Inet_Tcp_Socket * socket, char *host, char *service)
+{
+    struct addrinfo  *addr, *addrsave, hint;
+    int skfd, ret;
+    char *h, *s;
+
+    bzero(&hint, sizeof(hint));
+    hint.ai_family   = AF_INET;
+    hint.ai_socktype = SOCK_STREAM;
+
+    if (host == NULL && service == NULL) {
+        // h = socket->remote_host;
+        // s = socket->remote_service;
+    } else {
+        h = host;
+        s = service;
+    }
+
+    if ((ret = getaddrinfo(h, s, &hint, &addr)) != 0){
+        dbg_str(DBG_ERROR, "getaddrinfo error: %s", gai_strerror(ret));
+        return -1;
+    }
+    addrsave = addr;
+
+    if (addr != NULL) {
+        dbg_str(NET_DETAIL, "ai_family=%d type=%d", addr->ai_family, addr->ai_socktype);
+    } else {
+        dbg_str(DBG_ERROR, "getaddrinfo err");
+        return -1;
+    }                      
+
+    do {
+        if ((ret = connect(socket->parent.fd, addr->ai_addr, addr->ai_addrlen)) == 0)
+            break;
+    } while ((addr = addr->ai_next) != NULL);
+
+    if (addr == NULL) {
+        dbg_str(NET_WARNNING, "connect error for %s %s", host, service);
+    }
+
+    freeaddrinfo(addrsave);
+
+    return ret;
+}
+
 static int __connect(Inet_Tcp_Socket * socket, char *host, char *service)
 {   
-    Socket * so =(Socket *)&socket->parent;
-    dbg_str(DBG_SUC,"Inet_Tcp_Socket addr:%p  Socket addr:%p " ,socket,so);
-
-    
-    struct sockaddr_in addr;
+   
     int ret = -1;
     int error = 0;
     socklen_t len = sizeof(error);
+    Socket * so = (Socket *)socket;
     //----设置非阻塞----
-    socket->parent.setblock(&socket->parent,0);
-    socket->parent.connect(&socket->parent,host,service);
-
+    so->setblock(so,0);
+    ret = __inet_tcp_connect_internal(socket,host,service);
     #if 1
-
-    dbg_str(DBG_SUC,"Inet_Tcp_Socket addr:%p  Socket addr:%p " ,socket,so);
-   
-    ret = so->connect(so,host,service);
 
     if (ret == 0) {
         dbg_str(DBG_SUC,"connect success!");
-         socket->setblock(socket,1);
+        so->setblock(so,1);
         return ret;
     } else if (ret < 0  && errno == EINPROGRESS) {
         fd_set wset;
@@ -222,7 +271,8 @@ static int __connect(Inet_Tcp_Socket * socket, char *host, char *service)
                     break;
                 }
                 //设置阻塞
-                socket->close(socket);
+                so->setblock(so,1);
+                dbg_str(DBG_SUC,"connect success!");
                 return 0;
         }
     } else {
@@ -241,6 +291,7 @@ static  ssize_t __recv(Inet_Tcp_Socket * socket, void *buf, size_t len, int flag
     struct timeval tm_tv;
     tm_tv.tv_sec  = socket->timeout;
     tm_tv.tv_usec = 0;
+    int fd = socket->get_socketfd(socket);
 
     FD_ZERO(&read_set);
     FD_SET(socket->parent.fd,&read_set);
@@ -250,20 +301,20 @@ static  ssize_t __recv(Inet_Tcp_Socket * socket, void *buf, size_t len, int flag
     {
         case -1:
             /* code */
-            socket->parent.close(&socket->parent);
+            socket->close(socket);
             return -1;
         case 0:
-            socket->parent.close(&socket->parent);
+            socket->close(socket);
             return -1;
         default:
 
-            recvlen = socket->parent.recv(&socket->parent,buf,len,flags);
+            recvlen = recv(fd,buf,len,flags);
 
             if (recvlen < 0) {
-                socket->parent.close(&socket->parent);
+                socket->close(socket);
                 return -1;
             }  else if(recvlen == 0) {
-                socket->parent.close(&socket->parent);
+                socket->close(socket);
                 return  -1;
             }  
             return recvlen;
@@ -286,15 +337,15 @@ static  ssize_t __send(Inet_Tcp_Socket * socket, void *buf, size_t len, int flag
 
     switch(ret) {
         case -1:
-            socket->parent.close(&socket->parent);
+            socket->close(socket);
             return -1;
         case 0:
-            socket->parent.close(&socket->parent);
+            socket->close(socket);
             return -2;
         default:
-            sendlen = socket->parent.send(&socket->parent,buf,len,flags);
+            sendlen = send(fd,buf,len,flags);
             if (sendlen <= 0) {
-                socket->parent.close(&socket->parent);
+                socket->close(socket);
                 return -3;
             }
 
@@ -361,16 +412,16 @@ static int __get_socketfd(Inet_Tcp_Socket *socket)
 }
 
 static class_info_entry_t inet_tcp_socket_class_info[] = {
-    [0 ] = {ENTRY_TYPE_OBJ, "Socket", "parent", NULL, sizeof(void *)}, 
-    [1 ] = {ENTRY_TYPE_FUNC_POINTER, "", "set", __set, sizeof(void *)}, 
-    [2 ] = {ENTRY_TYPE_FUNC_POINTER, "", "get", __get, sizeof(void *)}, 
-    [3 ] = {ENTRY_TYPE_FUNC_POINTER, "", "construct", __construct, sizeof(void *)}, 
-    [4 ] = {ENTRY_TYPE_FUNC_POINTER, "", "deconstruct", __deconstrcut, sizeof(void *)}, 
+    [0 ] = {ENTRY_TYPE_OBJ,     "Socket", "parent", NULL, sizeof(void *)}, 
+    [1 ] = {ENTRY_TYPE_FUNC_POINTER, "",  "set", __set, sizeof(void *)}, 
+    [2 ] = {ENTRY_TYPE_FUNC_POINTER, "",  "get", __get, sizeof(void *)}, 
+    [3 ] = {ENTRY_TYPE_FUNC_POINTER, "",  "construct", __construct, sizeof(void *)}, 
+    [4 ] = {ENTRY_TYPE_FUNC_POINTER, "",  "deconstruct", __deconstrcut, sizeof(void *)}, 
     [5 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "bind", NULL, sizeof(void *)}, 
     [6 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "listen", NULL, sizeof(void *)}, 
     [7 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "accept", __accept, sizeof(void *)}, 
     [8 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "accept_fd", __accept_fd, sizeof(void *)}, 
-    [9 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "connect", NULL, sizeof(void *)}, 
+    [9 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "connect", __connect, sizeof(void *)}, 
     [10] = {ENTRY_TYPE_VFUNC_POINTER, "", "write", NULL, sizeof(void *)}, 
     [11] = {ENTRY_TYPE_VFUNC_POINTER, "", "sendto", NULL, sizeof(void *)}, 
     [12] = {ENTRY_TYPE_VFUNC_POINTER, "", "sendmsg", NULL, sizeof(void *)}, 
@@ -384,11 +435,14 @@ static class_info_entry_t inet_tcp_socket_class_info[] = {
     [20] = {ENTRY_TYPE_VFUNC_POINTER, "", "setnoclosewait", NULL, sizeof(void *)},
     [21] = {ENTRY_TYPE_VFUNC_POINTER, "", "setclosewait", NULL, sizeof(void *)},
     [22] = {ENTRY_TYPE_VFUNC_POINTER, "", "setclosewaitdefault", NULL, sizeof(void *)},
-    [23] = {ENTRY_TYPE_FUNC_POINTER, "", "set_timeout", __set_timeout, sizeof(void *)},
-    [24] = {ENTRY_TYPE_FUNC_POINTER, "", "get_timeout", __get_timeout, sizeof(void *)},
+    [23] = {ENTRY_TYPE_FUNC_POINTER, "",  "set_timeout", __set_timeout, sizeof(void *)},
+    [24] = {ENTRY_TYPE_FUNC_POINTER, "",  "get_timeout", __get_timeout, sizeof(void *)},
     [25] = {ENTRY_TYPE_VFUNC_POINTER, "", "send", __send, sizeof(void *)},
     [26] = {ENTRY_TYPE_VFUNC_POINTER, "", "get_socketfd", __get_socketfd, sizeof(void *)},
-    [27] = {ENTRY_TYPE_END}, 
+    [27] = {ENTRY_TYPE_VFUNC_POINTER, "", "getsockopt", NULL, sizeof(void *)},
+    [28] = {ENTRY_TYPE_VFUNC_POINTER, "", "setsockopt", NULL, sizeof(void *)},
+    [29] = {ENTRY_TYPE_VFUNC_POINTER, "", "setnoblocking", NULL, sizeof(void *)},
+    [30 ] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("Inet_Tcp_Socket", inet_tcp_socket_class_info);
 
@@ -415,11 +469,16 @@ int test_inet_tcp_socket_send(TEST_ENTRY *entry)
     }
 
     dbg_str(DBG_SUC,"socket fd %d",socket->get_socketfd(socket));
-    // ret = socket->send(socket,buf,len,0);
+
+
+
+    ret = socket->send(socket,buf,len,0);
+
     // dbg_str(DBG_SUC,"socket send %d",ret);
     //socket->write(socket, test_str, strlen(test_str));
-    // len = socket->recv(socket,buf,1024,0);
-    // dbg_str(DBG_SUC,"connect success %d",len);
+    bzero(buf,1024);
+    len = socket->recv(socket,buf,1024,0);
+    dbg_str(DBG_SUC,"connect success %d %s",len,buf);
     pause();
     //while(1) sleep(1);
 

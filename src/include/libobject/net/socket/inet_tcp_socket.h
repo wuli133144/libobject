@@ -23,16 +23,21 @@ struct inet_tcp_socket_s{
     void *(*get)(void *obj, char *attrib);
 
 	/*virtual methods reimplement*/
-    Socket * (*accept)(Inet_Tcp_Socket *socket, char *remote_host, char *remote_service);
-    int (*accept_fd)(Inet_Tcp_Socket *socket, char *remote_host, char *remote_service);
+    // Socket * (*accept)(Inet_Tcp_Socket *socket, char *remote_host, char *remote_service);
+    // int (*accept_fd)(Inet_Tcp_Socket *socket, char *remote_host, char *remote_service);
 
     /*inherit metheods from parent*/
     int (*listen)(Inet_Tcp_Socket *socket, int backlog);
+    Socket * (*accept)(Inet_Tcp_Socket *socket, char *remote_host, char *remote_service);
+    int (*accept_fd)(Inet_Tcp_Socket *socket, char *remote_host, char *remote_service);
     int (*connect)(Inet_Tcp_Socket *socket, char *host, char *service);
     int (*bind)(Inet_Tcp_Socket *socket, char *host, char *service);
-    ssize_t (*send)(Inet_Tcp_Socket *socket, const void *buf, size_t len, int flags);
     ssize_t (*write)(Inet_Tcp_Socket *socket, const void *buf, size_t len);
-    ssize_t (*sendto)(Inet_Tcp_Socket *socket, const void *buf, size_t len, int flags,
+    ssize_t (*send)(Inet_Tcp_Socket *socket, const void *buf, size_t len, int flags);
+    ssize_t (*sendto)(Inet_Tcp_Socket *socket, 
+                      const void *buf, 
+                      size_t len,
+                      int flags,
                       const struct sockaddr *dest_addr,
                       socklen_t addrlen);
     ssize_t (*sendmsg)(Inet_Tcp_Socket *socket, const struct msghdr *msg, int flags);
@@ -42,8 +47,10 @@ struct inet_tcp_socket_s{
                         struct sockaddr *src_addr, 
                         socklen_t *addrlen);
     ssize_t (*recvmsg)(Inet_Tcp_Socket *socket, struct msghdr *msg, int flags);
-    
-    
+    int (*getsockopt)(Inet_Tcp_Socket *socket, int level, int optname, sockoptval *val);
+    int (*setsockopt)(Inet_Tcp_Socket *socket, int level, int optname, sockoptval *val);
+    int (*setnonblocking)(Inet_Tcp_Socket *socket);
+
     void (*setblock)(Inet_Tcp_Socket *,int isblock);
     int  (*close)(Inet_Tcp_Socket * socket);
     int  (*shutdown)(Inet_Tcp_Socket *socket,int ihow);

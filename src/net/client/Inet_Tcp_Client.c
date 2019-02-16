@@ -74,8 +74,7 @@ static int __set(Inet_Tcp_Client *client, char *attrib, void *value)
         client->construct = value;
     } else if (strcmp(attrib, "deconstruct") == 0) {
         client->deconstruct = value;
-    } 
-    else if (strcmp(attrib, "bind") == 0) {
+    } else if (strcmp(attrib, "bind") == 0) {
         client->bind = value;
     } else if (strcmp(attrib, "connect") == 0) {
         client->connect = value;
