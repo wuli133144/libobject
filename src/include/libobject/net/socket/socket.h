@@ -21,6 +21,17 @@ typedef union sockoptval_u{
     struct timeval timeval_val;
 }sockoptval;
 
+typedef enum {
+    NET_SOCKET_CLOSE = 1,
+    NET_SOCKET_SUCCESS,
+    NET_SOCKET_ERROR,
+    NET_SOCKET_SELECT,
+    NET_SOCKET_TIMEOUT,
+    NET_SOCKET_RECV,
+    NET_SOCKET_SEND 
+} net_qos_status_t;
+
+
 struct socket_s{
 	Obj obj;
 
@@ -36,7 +47,7 @@ struct socket_s{
     int (*connect)(Socket *socket, char *host, char *service);
     int (*bind)(Socket *socket, char *host, char *service);
     ssize_t (*write)(Socket *socket, const void *buf, size_t len);
-    ssize_t (*send)(Socket *socket, const void *buf, size_t len, int flags);
+    net_qos_status_t (*send)(Socket *socket, const void *buf, size_t *len, int flags);
     ssize_t (*sendto)(Socket *socket, 
                       const void *buf, 
                       size_t len,
@@ -45,7 +56,7 @@ struct socket_s{
                       socklen_t addrlen);
     ssize_t (*sendmsg)(Socket *socket, const struct msghdr *msg, int flags);
     ssize_t (*read)(Socket *socket, void *buf, size_t len);
-    ssize_t (*recv)(Socket *socket, void *buf, size_t len, int flags);
+    net_qos_status_t (*recv)(Socket *socket, void *buf, size_t *len, int flags);
     ssize_t (*recvfrom)(Socket *socket, void *buf, size_t len, int flags,
                         struct sockaddr *src_addr, 
                         socklen_t *addrlen);
@@ -65,7 +76,7 @@ struct socket_s{
     void (*set_timeout)(Socket *,int timeout);
     int  (*get_timeout)(Socket *);
     int  (*get_socketfd)(Socket*);
-    
+    //------------------------------------------------
     int fd;
     int socket_type;
     int isowner;

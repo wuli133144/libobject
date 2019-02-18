@@ -21,11 +21,12 @@ struct client_s{
     /*virtual methods*/
     int (*bind)(Client *client, char *host, char *service);
     int (*connect)(Client *client, char *host, char *service);
-    ssize_t (*send)(Client *client, const void *buf, size_t len, int flags);
-    ssize_t (*recv)(Client *client, void *buf, size_t len, int flags);
+    net_qos_status_t (*send)(Client *client, const void *buf, size_t *len, int flags);
+    net_qos_status_t (*recv)(Client *client, void *buf, size_t *len, int flags);
 	int (*trustee)(Client *client, struct timeval *tv,
                    void *work_callback, void *opaque);
-    
+    int  (*close)(Client * client);
+
     Worker *worker;
     Socket *socket;
     void *opaque;

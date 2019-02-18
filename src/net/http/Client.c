@@ -35,6 +35,7 @@
 #include <libobject/core/utils/timeval/timeval.h>
 #include <libobject/core/utils/registry/registry.h>
 #include <libobject/net/http/Client.h>
+#include <libobject/net/client/inet_tcp_client.h>
 
 static int __http_client_response_callback(void *task);
 
@@ -47,7 +48,7 @@ static int __construct(Http_Client *client,char *init_str)
     client->req = OBJECT_NEW(allocator, Request, NULL);
     client->resp = OBJECT_NEW(allocator, Response, NULL);
     client->host = "127.0.0.1";
-
+    client->c    = NULL;
     // client->req_buffer  = OBJECT_NEW(allocator, RingBuffer, NULL);
     // client->resp_buffer = OBJECT_NEW(allocator, RingBuffer, NULL);
     client->current_http_chunck = OBJECT_NEW(allocator, String, NULL);
@@ -136,10 +137,10 @@ __request(Http_Client *hc)
             return ret;
         }
 
-        host = req->server_ip->c_str(req->server_ip);
-        port = req->port->c_str(req->port);
+        host        = req->server_ip->c_str(req->server_ip);
+        port        = req->port->c_str(req->port);
         request_ctx = req->request_header_context->c_str(req->request_header_context);
-        len = req->request_header_context->size(req->request_header_context) ;
+        len         = req->request_header_context->size(req->request_header_context) ;
 
         //timeout_callback
         req->timer = timer_worker(allocator,&req->ev_tv,hc,__default_timeout_callback);
@@ -188,8 +189,90 @@ __request(Http_Client *hc)
     return 0;
 }
 
-static Response * __request_sync(Http_Client *client)
-{
+static Response * __request_sync(Http_Client *hc)
+{  
+    allocator_t *allocator = hc->obj.allocator;
+    Request *req;
+    Response *resp;
+
+    int ret,len;
+    char *host ,*port ,*request_ctx = NULL;
+    int length = 1024;
+    char stmpbuffer[1024] = {0};
+
+    if (hc->c != NULL) {
+    } else {
+        Client *c = NULL;
+        char *str = "hello world";
+
+        req  = hc->get_request(hc);
+        resp = hc->get_response(hc);
+        ret  = req->write(req);
+
+        if (ret < 0 ) {
+            return ret;
+        }
+
+        host        = req->server_ip->c_str(req->server_ip);
+        port        = req->port->c_str(req->port);
+        request_ctx = req->request_header_context->c_str(req->request_header_context);
+        len         = req->request_header_context->size(req->request_header_context) ;
+
+        if (!hc->c) {
+            hc->c = OBJECT_NEW(allocator,Inet_Tcp_Client,NULL);
+            if (!hc->c) {
+                dbg_str(DBG_ERROR,"request_sync failed! ");
+                goto error;
+            }
+        }
+
+        ret = hc->c->connect(hc->c,host,port);
+        if (ret != 0) {
+            dbg_str(DBG_ERROR,"request_sync connect (%s %s) failed! ",host,port);
+            goto error;
+        }
+
+        ret = hc->c->send(hc->c,request_ctx,len,0);
+
+        if (ret < 0 ) {
+            dbg_str(DBG_ERROR,"request_sync send  failed! ");
+            goto error;
+        }
+
+        while (1) {
+            ret = hc->c->recv(hc->c,stmpbuffer,&length,0);
+            if (ret == NET_SOCKET_SELECT) {
+                dbg_str(DBG_ERROR,"request_sync recv select error! ");
+                goto error;
+            } else if (ret == NET_SOCKET_TIMEOUT) { 
+                dbg_str(DBG_ERROR,"request_sync recv select timeout error! ");
+                goto error;
+            } else if (ret == NET_SOCKET_RECV) { 
+                dbg_str(DBG_ERROR,"request_sync system::recv  error! ");
+                goto error;
+            } else if (ret == NET_SOCKET_CLOSE) { //recv data over
+                dbg_str(DBG_ERROR,"request_sync recv success ");
+                ret = resp->parse_response_internal(resp);
+                if (ret < 0) {
+                    goto error;
+                }
+                return resp;
+            } else if (ret == NET_SOCKET_SUCCESS) {
+                ret = resp->response_parse(resp,stmpbuffer,ret);
+                if (ret < 0) {
+                    dbg_str(DBG_ERROR,"request_sync parse response error ");
+                    goto error;
+                }
+            }
+        }
+        req->option_reset(req); 
+    }
+    
+
+error:
+    hc->c->close(hc->c);
+    req->option_reset(req);
+    return NULL; 
 }
 
 static int __set_opt(Http_Client *client,http_opt_t opt,void *value)
@@ -292,4 +375,41 @@ int test_http_client(TEST_ENTRY *entry)
     
     return 1;
 }
+
+int test_http_client_sync(TEST_ENTRY *entry)
+{
+    int ret = 0 ;
+    Http_Client *client;
+    Response *response;
+    int t = 4;
+    allocator_t *allocator = allocator_get_default_alloc();
+    char *body = "hello world from libobject";
+
+    client = OBJECT_NEW(allocator, Http_Client, NULL);
+
+    client->set_opt(client,HTTP_OPT_METHOD,"GET");
+    client->set_opt(client,HTTP_OPT_EFFECTIVE_URL,"127.0.0.1");
+    #if 1
+
+    #endif 
+
+    #if 1
+    response = client->request_sync(client);
+
+    if ( response == NULL ) {
+        dbg_str(DBG_ERROR,"http request error!");
+    }  else {
+        dbg_str(DBG_SUC,"http request success:%s",
+        response->response_context->c_str(response->response_context));
+    }
+    #endif
+
+    pause();
+    
+    object_destroy(client);
+    
+    return 1;
+}
+
 REGISTER_STANDALONE_TEST_FUNC(test_http_client);
+REGISTER_STANDALONE_TEST_FUNC(test_http_client_sync);

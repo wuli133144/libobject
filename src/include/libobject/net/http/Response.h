@@ -32,6 +32,7 @@ struct response_s{
     int (*set_buffer)(Response *response, RingBuffer *buffer);
     int (*read)(Response *response);
     int (*response_parse)(Response *response,void *buffer,int len);
+    int (*parse_response_internal)(Response *);
     int current_size;
     int content_length;
     response_status_t response_status;

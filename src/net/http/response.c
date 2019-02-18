@@ -76,6 +76,8 @@ static int __set(Response *response, char *attrib, void *value)
         response->read = value;
     } else if (strcmp(attrib, "response_parse") == 0) {
         response->response_parse = value;
+    } else if (strcmp(attrib, "parse_response_internal") == 0) {
+        response->parse_response_internal = value;
     } 
     else {
         dbg_str(DBG_DETAIL,"response set, not support %s setting",attrib);
@@ -136,6 +138,42 @@ static int __response_parse(Response *response,void *buffer,int len)
     return len;
 }
 
+static int __parse_response_internal(Response *response)
+{
+    int pos;
+    int size;
+    String * stmp = NULL;
+    void * buffer = NULL;
+    allocator_t *allocator = response->obj.allocator;
+
+    size = response->buffer->buffer_used_size(response->buffer);
+    buffer = allocator_mem_alloc(allocator,size);
+    memset(buffer,0,size);
+    stmp = OBJECT_NEW(allocator,String,NULL);
+
+    if (response->response_context){
+        object_destroy(response->response_context);
+        response->response_context = NULL;
+    }
+
+    response->buffer->buffer_read(response->buffer,buffer,size);
+    stmp->assign(stmp,buffer);
+
+    pos = stmp->find_cstr(stmp,"\r\n\r\n",0);
+    if (pos < 0) {
+        return pos;
+    }
+
+    response->response_context = stmp->substr(stmp,pos+4,size);
+
+    object_destroy(stmp);
+    allocator_mem_free(allocator,buffer);
+    buffer = NULL;
+    stmp   =NULL;
+    
+    return pos ;
+}
+
 static int __read(Response *response)
 {
     dbg_str(DBG_SUC, "read response");
@@ -151,7 +189,8 @@ static class_info_entry_t concurent_class_info[] = {
     [5 ] = {ENTRY_TYPE_VFUNC_POINTER,"","set_buffer",__set_buffer,sizeof(void *)},
     [6 ] = {ENTRY_TYPE_VFUNC_POINTER,"","read",__read,sizeof(void *)},
     [7 ] = {ENTRY_TYPE_VFUNC_POINTER,"","response_parse",__response_parse,sizeof(void *)},
-    [8 ] = {ENTRY_TYPE_END},
+    [8 ] = {ENTRY_TYPE_VFUNC_POINTER,"","parse_response_internal",__parse_response_internal,sizeof(void *)},
+    [9 ] = {ENTRY_TYPE_END},
 };
 REGISTER_CLASS("Response",concurent_class_info);
 

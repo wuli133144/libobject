@@ -74,6 +74,8 @@ static int __set(Client *client, char *attrib, void *value)
         client->send = value;
     } else if (strcmp(attrib, "trustee") == 0) {
         client->trustee = value;
+    } else if (strcmp(attrib, "close") == 0) {
+        client->close = value;
     } 
     else {
         dbg_str(NET_DETAIL, "client set, not support %s setting", attrib);
@@ -106,18 +108,24 @@ static int __connect(Client *client, char *host, char *service)
     return socket->connect(socket, host, service);
 }
 
-static ssize_t __send(Client *client, const void *buf, size_t len, int flags)
+static net_qos_status_t __send(Client *client, const void *buf, size_t *len, int flags)
 {
     Socket *socket = client->socket;
 
     return socket->send(socket, buf, len, flags);
 }
 
-static ssize_t __recv(Client *client, void *buf, size_t len, int flags)
+static net_qos_status_t __recv(Client *client, void *buf, size_t* len, int flags)
 {
     Socket *socket = client->socket;
 
     return socket->recv(socket, buf, len, flags);
+}
+
+static int __close(Client *client)
+{
+    Socket *socket = client->socket;
+    return socket->close(socket);
 }
 
 static ssize_t __ev_callback(int fd, short event, void *arg)
@@ -184,7 +192,8 @@ static class_info_entry_t client_class_info[] = {
     [7 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "send", __send, sizeof(void *)}, 
     [8 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "recv", __recv, sizeof(void *)}, 
     [9 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "trustee", __trustee, sizeof(void *)}, 
-    [10] = {ENTRY_TYPE_END}, 
+    [10 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "close", __close, sizeof(void *)}, 
+    [11] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("Client", client_class_info);
 

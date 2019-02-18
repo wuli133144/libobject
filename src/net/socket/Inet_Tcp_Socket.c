@@ -283,7 +283,7 @@ static int __connect(Inet_Tcp_Socket * socket, char *host, char *service)
     return 1;
 }
 
-static  ssize_t __recv(Inet_Tcp_Socket * socket, void *buf, size_t len, int flags)
+static  net_qos_status_t __recv(Inet_Tcp_Socket * socket, void *buf, size_t *len, int flags)
 {
     int ret;
     ssize_t recvlen;
@@ -302,27 +302,30 @@ static  ssize_t __recv(Inet_Tcp_Socket * socket, void *buf, size_t len, int flag
         case -1:
             /* code */
             socket->close(socket);
-            return -1;
+            return NET_SOCKET_SELECT;
         case 0:
             socket->close(socket);
-            return -1;
+            return NET_SOCKET_TIMEOUT;
         default:
 
             recvlen = recv(fd,buf,len,flags);
 
             if (recvlen < 0) {
                 socket->close(socket);
-                return -1;
+                return NET_SOCKET_RECV;
             }  else if(recvlen == 0) {
                 socket->close(socket);
-                return  -1;
-            }  
-            return recvlen;
+                return  NET_SOCKET_CLOSE;
+            }
+
+            *len =  recvlen;
+
+            return NET_SOCKET_SUCCESS;
     }
     
 }
 
-static  ssize_t __send(Inet_Tcp_Socket * socket, void *buf, size_t len, int flags)
+static  net_qos_status_t __send(Inet_Tcp_Socket * socket, void *buf, size_t *len, int flags)
 {
     int ret = 0,fd = -1,sendlen = -1;
     fd_set wset;
@@ -338,18 +341,23 @@ static  ssize_t __send(Inet_Tcp_Socket * socket, void *buf, size_t len, int flag
     switch(ret) {
         case -1:
             socket->close(socket);
-            return -1;
+            return NET_SOCKET_SELECT;
         case 0:
             socket->close(socket);
-            return -2;
+            return NET_SOCKET_TIMEOUT;
         default:
             sendlen = send(fd,buf,len,flags);
-            if (sendlen <= 0) {
+            if (sendlen < 0) {
                 socket->close(socket);
-                return -3;
+                return NET_SOCKET_SEND;
+            } else if (sendlen == 0) {
+                socket->close(socket);
+                return NET_SOCKET_CLOSE;
             }
 
-            return sendlen;
+            *len = sendlen;
+
+            return NET_SOCKET_SUCCESS;
     }   
 
 }
