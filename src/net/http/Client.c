@@ -232,7 +232,7 @@ static Response * __request_sync(Http_Client *hc)
             goto error;
         }
 
-        ret = hc->c->send(hc->c,request_ctx,len,0);
+        ret = hc->c->send(hc->c,request_ctx,&len,0);
 
         if (ret < 0 ) {
             dbg_str(DBG_ERROR,"request_sync send  failed! ");
@@ -258,7 +258,7 @@ static Response * __request_sync(Http_Client *hc)
                 }
                 return resp;
             } else if (ret == NET_SOCKET_SUCCESS) {
-                ret = resp->response_parse(resp,stmpbuffer,ret);
+                ret = resp->response_parse(resp,stmpbuffer,length);
                 if (ret < 0) {
                     dbg_str(DBG_ERROR,"request_sync parse response error ");
                     goto error;
