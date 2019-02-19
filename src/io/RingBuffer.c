@@ -37,7 +37,7 @@
 #include <libobject/io/RingBuffer.h>
 #include <libobject/core/utils/registry/registry.h>
 #include <libobject/core/thread.h>
-#define DEFAULT_BUFFER_SIZE 1024
+#define DEFAULT_BUFFER_SIZE 4096
 
 static int __construct(RingBuffer *self,char *init_str)
 {

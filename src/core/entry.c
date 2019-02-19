@@ -38,8 +38,8 @@ int libobject_init()
 
 int libobject_exit()
 {
-    kill(0, SIGQUIT);
-
+    kill(getpid(), SIGQUIT);
+    //_exit(0);
     return 0;
 }
 

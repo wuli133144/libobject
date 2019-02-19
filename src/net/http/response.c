@@ -111,9 +111,10 @@ static int __response_parse(Response *response,void *buffer,int len)
     }
 
     RingBuffer *rbuffer = response->buffer;
-    int pos_start,pos_end;
+    int pos_start,pos_end,ret;
     String *resp = response->response_context;
     String *tmp = NULL;
+    String *tmpbuffer = NULL;
 
     if (len) {
         rbuffer->buffer_write(rbuffer,buffer,len);
@@ -121,16 +122,27 @@ static int __response_parse(Response *response,void *buffer,int len)
 
     if (!response->content_length) {
        resp->assign(resp,buffer);
-       pos_start = resp->find_cstr(resp,"Content-Length:",0);
+       pos_end = resp->find_cstr(resp,"\r\n",0);
+       tmpbuffer = resp->substr(resp,0,pos_end);
+       ret = tmpbuffer->find_cstr(tmpbuffer,"200",0);
 
-       pos_end = resp->find_cstr(resp,"\r\n",pos_start+15);
+       if (ret < 0) {
+           dbg_str(DBG_ERROR,"http response status error");
+           object_destroy(tmp);
+           object_destroy(tmpbuffer);
+           return ret;
+       }
+
+       pos_start = resp->find_cstr(resp,"Content-Length:",0);
+       pos_end   = resp->find_cstr(resp,"\r\n",pos_start+15);
        tmp = resp->substr(resp,pos_start+15,pos_end-(pos_start+15));
-       if (tmp == NULL) {  return -1;}
        tmp->trim(tmp);
        response->content_length = atoi(tmp->c_str(tmp));
        resp->clear(resp);
        tmp->clear(tmp);
        object_destroy(tmp);
+       object_destroy(tmpbuffer);
+
        tmp = NULL;
     }
 
@@ -142,35 +154,29 @@ static int __parse_response_internal(Response *response)
 {
     int pos;
     int size;
-    String * stmp = NULL;
-    void * buffer = NULL;
+    char * buffer = NULL,*find_pos = NULL;
     allocator_t *allocator = response->obj.allocator;
 
     size = response->buffer->buffer_used_size(response->buffer);
     buffer = allocator_mem_alloc(allocator,size);
     memset(buffer,0,size);
-    stmp = OBJECT_NEW(allocator,String,NULL);
-
-    if (response->response_context){
-        object_destroy(response->response_context);
-        response->response_context = NULL;
-    }
 
     response->buffer->buffer_read(response->buffer,buffer,size);
-    stmp->assign(stmp,buffer);
-
-    pos = stmp->find_cstr(stmp,"\r\n\r\n",0);
-    if (pos < 0) {
-        return pos;
+    find_pos = strstr(buffer,"\r\n\r\n");
+    if (find_pos < 0) {
+        goto end;
     }
 
-    response->response_context = stmp->substr(stmp,pos+4,size);
+    pos = find_pos - buffer;
 
-    object_destroy(stmp);
+    response->response_context->clear(response->response_context);
+    response->response_context->assign(response->response_context,buffer+pos);
+
+end:
+    
+    response->buffer->clear(response->buffer);
     allocator_mem_free(allocator,buffer);
     buffer = NULL;
-    stmp   =NULL;
-    
     return pos ;
 }
 

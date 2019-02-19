@@ -44,6 +44,8 @@ static int __construct(Inet_Tcp_Client *client, char *init_str)
     if (client->parent.socket == NULL) {
         dbg_str(DBG_ERROR, "OBJECT_NEW Inet_Udp_Socket");
         return -1;
+    } else {
+        dbg_str(DBG_SUC, "OBJECT_NEW Inet_Tcp_Socket %p",client->parent.socket);
     }
 
     client->parent.worker = OBJECT_NEW(allocator, Worker, NULL);
@@ -84,6 +86,12 @@ static int __set(Inet_Tcp_Client *client, char *attrib, void *value)
         client->send = value;
     } else if (strcmp(attrib, "trustee") == 0) {
         client->trustee = value;
+    } else if (strcmp(attrib, "setbuffer") == 0) {
+        client->setbuffer = value;
+    } else if (strcmp(attrib, "setsendbuffer") == 0) {
+        client->setsendbuffer = value;
+    } else if (strcmp(attrib, "setrecvbuffer") == 0) {
+        client->setrecvbuffer = value;
     }
     else {
         dbg_str(NET_DETAIL, "client set, not support %s setting", attrib);
@@ -115,7 +123,10 @@ static class_info_entry_t inet_tcp_client_class_info[] = {
     [7 ] = {ENTRY_TYPE_IFUNC_POINTER, "", "send", NULL, sizeof(void *)}, 
     [8 ] = {ENTRY_TYPE_IFUNC_POINTER, "", "recv", NULL, sizeof(void *)}, 
     [9 ] = {ENTRY_TYPE_IFUNC_POINTER, "", "trustee", NULL, sizeof(void *)}, 
-    [10] = {ENTRY_TYPE_END}, 
+    [10] = {ENTRY_TYPE_IFUNC_POINTER, "", "setbuffer", NULL, sizeof(void *)},
+    [11] = {ENTRY_TYPE_IFUNC_POINTER, "", "setrecvbuffer", NULL, sizeof(void *)}, 
+    [12] = {ENTRY_TYPE_IFUNC_POINTER, "", "setsendbuffer", NULL, sizeof(void *)}, 
+    [13] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("Inet_Tcp_Client", inet_tcp_client_class_info);
 

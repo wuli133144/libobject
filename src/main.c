@@ -127,6 +127,7 @@ int main(int argc, char *argv[])
 
     libobject_exit();
 
+    while (1) ;
     return ret;
 }
 #endif

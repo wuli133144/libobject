@@ -45,7 +45,7 @@ static int __construct(Http_Client *client,char *init_str)
 {
     allocator_t *allocator = client->obj.allocator;
 
-    client->req = OBJECT_NEW(allocator, Request, NULL);
+    client->req  = OBJECT_NEW(allocator, Request, NULL);
     client->resp = OBJECT_NEW(allocator, Response, NULL);
     client->host = "127.0.0.1";
     client->c    = NULL;
@@ -179,7 +179,7 @@ __request(Http_Client *hc)
         
         client_send(c,
                     request_ctx,
-                    len, 
+                    &len, 
                     0);
         req->option_reset(req);
 
@@ -197,81 +197,103 @@ static Response * __request_sync(Http_Client *hc)
 
     int ret,len;
     char *host ,*port ,*request_ctx = NULL;
-    int length = 1024;
-    char stmpbuffer[1024] = {0};
+    int length = 4096;
+    char stmpbuffer[4096] = {0};
 
-    if (hc->c != NULL) {
-    } else {
-        Client *c = NULL;
-        char *str = "hello world";
+    Client *c = NULL;
+    char *str = "hello world";
 
-        req  = hc->get_request(hc);
-        resp = hc->get_response(hc);
-        ret  = req->write(req);
+    req  = hc->get_request(hc);
+    resp = hc->get_response(hc);
+    ret  = req->write(req);
 
-        if (ret < 0 ) {
-            return ret;
-        }
+    if (ret < 0 ) {
+        return ret;
+    }
 
-        host        = req->server_ip->c_str(req->server_ip);
-        port        = req->port->c_str(req->port);
-        request_ctx = req->request_header_context->c_str(req->request_header_context);
-        len         = req->request_header_context->size(req->request_header_context) ;
+    host        = req->server_ip->c_str(req->server_ip);
+    port        = req->port->c_str(req->port);
+    request_ctx = req->request_header_context->c_str(req->request_header_context);
+    len         = req->request_header_context->size(req->request_header_context) ;
 
+    if (!hc->c) {
+        hc->c = OBJECT_NEW(allocator,Inet_Tcp_Client,NULL);
         if (!hc->c) {
-            hc->c = OBJECT_NEW(allocator,Inet_Tcp_Client,NULL);
-            if (!hc->c) {
-                dbg_str(DBG_ERROR,"request_sync failed! ");
-                goto error;
-            }
-        }
-
-        ret = hc->c->connect(hc->c,host,port);
-        if (ret != 0) {
-            dbg_str(DBG_ERROR,"request_sync connect (%s %s) failed! ",host,port);
+            dbg_str(DBG_ERROR,"request_sync failed! ");
             goto error;
-        }
-
-        ret = hc->c->send(hc->c,request_ctx,&len,0);
-
-        if (ret < 0 ) {
-            dbg_str(DBG_ERROR,"request_sync send  failed! ");
+        } 
+    } else {
+        object_destroy(hc->c);
+        hc->c = OBJECT_NEW(allocator,Inet_Tcp_Client,NULL);
+        if (!hc->c) {
+            dbg_str(DBG_ERROR,"request_sync failed! ");
             goto error;
-        }
+        } 
+    }
 
-        while (1) {
-            ret = hc->c->recv(hc->c,stmpbuffer,&length,0);
-            if (ret == NET_SOCKET_SELECT) {
-                dbg_str(DBG_ERROR,"request_sync recv select error! ");
-                goto error;
-            } else if (ret == NET_SOCKET_TIMEOUT) { 
-                dbg_str(DBG_ERROR,"request_sync recv select timeout error! ");
-                goto error;
-            } else if (ret == NET_SOCKET_RECV) { 
-                dbg_str(DBG_ERROR,"request_sync system::recv  error! ");
-                goto error;
-            } else if (ret == NET_SOCKET_CLOSE) { //recv data over
-                dbg_str(DBG_ERROR,"request_sync recv success ");
-                ret = resp->parse_response_internal(resp);
-                if (ret < 0) {
-                    goto error;
-                }
-                return resp;
-            } else if (ret == NET_SOCKET_SUCCESS) {
-                ret = resp->response_parse(resp,stmpbuffer,length);
-                if (ret < 0) {
-                    dbg_str(DBG_ERROR,"request_sync parse response error ");
-                    goto error;
-                }
-            }
-        }
-        req->option_reset(req); 
+
+    ret = client_connect(hc->c,host,port);
+    if (ret != 0) {
+        dbg_str(DBG_ERROR,"request_sync connect (%s %s) failed! ",host,port);
+        goto error;
     }
     
+    ret = hc->c->setbuffer(hc->c,4*1024);
+    if (ret < 0) {
+        dbg_str(DBG_ERROR,"request_sync buffer size failed! ");
+        goto error;
+    }
 
+
+    ret = hc->c->send(hc->c,request_ctx,&len,0);
+
+    if (ret < 0 ) {
+        dbg_str(DBG_ERROR,"request_sync send  failed! ");
+        goto error;
+    }
+
+    while (1) {
+        
+        length = 4096;
+        memset(stmpbuffer,0,length);
+        
+        ret = hc->c->recv(hc->c,stmpbuffer,&length,0);
+        if (ret == NET_SOCKET_SELECT) {
+            dbg_str(DBG_ERROR,"request_sync recv select error! ");
+            goto error;
+        } else if (ret == NET_SOCKET_TIMEOUT) { 
+            dbg_str(DBG_ERROR,"request_sync recv select timeout error! ");
+            goto error;
+        } else if (ret == NET_SOCKET_RECV) { 
+            dbg_str(DBG_ERROR,"request_sync system::recv  error! ");
+            goto error;
+        } else if (ret == NET_SOCKET_CLOSE) { //recv data over
+            dbg_str(DBG_ERROR,"request_sync recv success ");
+            
+            #if 1
+            ret = resp->parse_response_internal(resp);
+            if (ret < 0) {
+                goto error;
+            }
+            #endif 
+
+            client_close(hc->c);
+            req->request_header_context->clear(req->request_header_context);
+            return resp;
+        } else if (ret == NET_SOCKET_SUCCESS) {
+            #if 1
+            ret = resp->response_parse(resp,stmpbuffer,length);
+            if (ret < 0) {
+                dbg_str(DBG_ERROR,"request_sync parse response error ");
+                goto error;
+            }
+            #endif  
+        }
+    }
+    
 error:
-    hc->c->close(hc->c);
-    req->option_reset(req);
+    req->request_header_context->clear(req->request_header_context);
+    client_close(hc->c);
     return NULL; 
 }
 
@@ -393,7 +415,7 @@ int test_http_client_sync(TEST_ENTRY *entry)
 
     #endif 
 
-    #if 1
+    #if 0
     response = client->request_sync(client);
 
     if ( response == NULL ) {
@@ -402,12 +424,65 @@ int test_http_client_sync(TEST_ENTRY *entry)
         dbg_str(DBG_SUC,"http request success:%s",
         response->response_context->c_str(response->response_context));
     }
+    #else 
+    t = 1;
+    while (t--) {
+            response = client->request_sync(client);
+
+            if ( response == NULL ) {
+                dbg_str(DBG_ERROR,"http request error!");
+            }  else {
+                // char buffer[4096] = {0};
+                // int len = 4096;
+                // void * buffer = allocator_mem_alloc()
+                //response->buffer->buffer_read(response->buffer,buffer,4096);
+                dbg_str(DBG_SUC,"http response length:%d current size:%d buffer_size:%d",
+                                    response->content_length,
+                                    response->current_size,
+                                    response->buffer->buffer_used_size(response->buffer));  
+                dbg_str(DBG_SUC,"http request success:%s",
+                                response->response_context->c_str(response->response_context));
+            }
+            usleep(1000000);
+    }
     #endif
 
-    pause();
+    //pause();
     
     object_destroy(client);
+
+
+    client = OBJECT_NEW(allocator, Http_Client, NULL);
+
+    client->set_opt(client,HTTP_OPT_METHOD,"POST");
+    client->set_opt(client,HTTP_OPT_EFFECTIVE_URL,"127.0.0.1/push_qos_list");
+    client->set_opt(client,HTTP_OPT_JSON_FORMAT,"XXXXXXXXXXXXXXXXXX");
+
+    Request *req = NULL;
+    req = client->get_request(client);
+    if (req == NULL ) {
+        object_destroy(client);
+        return -1;
+    }
+
+    req->write(req);
+
+    String *str = req->request_header_context;
     
+    dbg_str(DBG_SUC,"http request:%s",str->c_str(str));
+
+    #if 0
+    response = client->request_sync(client);
+    if (response ==  NULL) {
+        dbg_str(DBG_ERROR,"http request error!");
+    } else {
+        dbg_str(DBG_ERROR,"http request success!");
+        dbg_str(DBG_ERROR,"http request success! content:%s",
+            response->response_context->c_str(response->response_context));
+    }
+    #endif 
+
+    pause();
     return 1;
 }
 

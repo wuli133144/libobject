@@ -53,7 +53,7 @@ static int __construct(Inet_Tcp_Socket *sk, char *init_str)
     }
 
     sk->parent.fd = skfd;
-    sk->timeout   = 0;
+    sk->timeout   = 3;
     return 0;
 }
 
@@ -125,6 +125,10 @@ static int __set(Inet_Tcp_Socket *socket, char *attrib, void *value)
         socket->setsockopt = value;
     } else if (strcmp(attrib, "getsockopt") == 0) {
         socket->getsockopt = value;
+    } else if (strcmp(attrib, "setsendbuffer") == 0) {
+        socket->setsendbuffer = value;
+    } else if (strcmp(attrib, "setrecvbuffer") == 0) {
+        socket->setrecvbuffer = value;
     } 
     else {
         dbg_str(NET_DETAIL, "socket set, not support %s setting", attrib);
@@ -216,25 +220,21 @@ static int __inet_tcp_connect_internal(Inet_Tcp_Socket * socket, char *host, cha
             break;
     } while ((addr = addr->ai_next) != NULL);
 
-    if (addr == NULL) {
-        dbg_str(NET_WARNNING, "connect error for %s %s", host, service);
-    }
 
     freeaddrinfo(addrsave);
 
     return ret;
 }
 
-static int __connect(Inet_Tcp_Socket * socket, char *host, char *service)
+static int __connect(Inet_Tcp_Socket * so, char *host, char *service)
 {   
-   
-    int ret = -1;
+    int ret = -1,ret_select = -1;
     int error = 0;
     socklen_t len = sizeof(error);
-    Socket * so = (Socket *)socket;
+    
     //----设置非阻塞----
     so->setblock(so,0);
-    ret = __inet_tcp_connect_internal(socket,host,service);
+    ret = __inet_tcp_connect_internal(so,host,service);
     #if 1
 
     if (ret == 0) {
@@ -244,31 +244,31 @@ static int __connect(Inet_Tcp_Socket * socket, char *host, char *service)
     } else if (ret < 0  && errno == EINPROGRESS) {
         fd_set wset;
         FD_ZERO(&wset);
-        FD_SET(socket->parent.fd,&wset);
+        FD_SET(so->parent.fd,&wset);
         struct timeval te_tv;
-        te_tv.tv_sec   = socket->timeout;
+        te_tv.tv_sec   = so->timeout;
         te_tv.tv_usec  = 0;
 
-        ret = select(socket->parent.fd+1,NULL,&wset,NULL,&te_tv);
-        switch (ret)
+        ret_select = select(so->parent.fd+1,NULL,&wset,NULL,&te_tv);
+        switch (ret_select)
         {
             case -1:
                 /* code */
-                socket->close(socket);
+                so->close(so);
                 break;
             case 0: 
-                socket->close(socket);
+                so->close(so);
                 break;
             default:
                
-                if (getsockopt(socket->parent.fd,SOL_SOCKET,SO_ERROR,&error,&len) < 0) {
-                    socket->close(socket);
-                    break;
+                if (getsockopt(so->parent.fd,SOL_SOCKET,SO_ERROR,&error,&len) < 0) {
+                   so->close(so);
+                   break;
                 }
 
                 if (error != 0) {
-                    socket->close(socket);
-                    break;
+                   so->close(so);
+                   break;
                 }
                 //设置阻塞
                 so->setblock(so,1);
@@ -276,11 +276,15 @@ static int __connect(Inet_Tcp_Socket * socket, char *host, char *service)
                 return 0;
         }
     } else {
-         socket->close(socket);
+         so->close(so);
     }
     #endif 
 
-    return 1;
+    if (ret != 0 ) {
+        dbg_str(DBG_ERROR,"connect failed!");
+    }
+
+    return -1;
 }
 
 static  net_qos_status_t __recv(Inet_Tcp_Socket * socket, void *buf, size_t *len, int flags)
@@ -289,32 +293,33 @@ static  net_qos_status_t __recv(Inet_Tcp_Socket * socket, void *buf, size_t *len
     ssize_t recvlen;
     fd_set read_set;
     struct timeval tm_tv;
+    int fd = socket->get_socketfd(socket);
+    Inet_Tcp_Socket *so = socket;
     tm_tv.tv_sec  = socket->timeout;
     tm_tv.tv_usec = 0;
-    int fd = socket->get_socketfd(socket);
 
     FD_ZERO(&read_set);
-    FD_SET(socket->parent.fd,&read_set);
-    ret = select(socket->parent.fd+1,&read_set,NULL,NULL,&tm_tv);
+    FD_SET(fd,&read_set);
+    ret = select(fd+1,&read_set,NULL,NULL,&tm_tv);
 
     switch (ret)
     {
         case -1:
             /* code */
-            socket->close(socket);
+            so->close(so);
             return NET_SOCKET_SELECT;
         case 0:
-            socket->close(socket);
+            so->close(so);
             return NET_SOCKET_TIMEOUT;
         default:
 
             recvlen = recv(fd,buf,len,flags);
 
             if (recvlen < 0) {
-                socket->close(socket);
+                so->close(so);
                 return NET_SOCKET_RECV;
             }  else if(recvlen == 0) {
-                socket->close(socket);
+                so->close(so);
                 return  NET_SOCKET_CLOSE;
             }
 
@@ -335,23 +340,24 @@ static  net_qos_status_t __send(Inet_Tcp_Socket * socket, void *buf, size_t *len
     tv_tm.tv_sec  = socket->timeout;
     tv_tm.tv_usec = 0; 
     fd = socket->parent.fd;
+    Inet_Tcp_Socket *so = socket;
 
     ret = select(fd+1,NULL,&wset,NULL,&tv_tm);
 
     switch(ret) {
         case -1:
-            socket->close(socket);
+            so->close(so);
             return NET_SOCKET_SELECT;
         case 0:
-            socket->close(socket);
+            so->close(so);
             return NET_SOCKET_TIMEOUT;
         default:
             sendlen = send(fd,buf,len,flags);
             if (sendlen < 0) {
-                socket->close(socket);
+                so->close(so);
                 return NET_SOCKET_SEND;
             } else if (sendlen == 0) {
-                socket->close(socket);
+                so->close(so);
                 return NET_SOCKET_CLOSE;
             }
 
@@ -419,6 +425,32 @@ static int __get_socketfd(Inet_Tcp_Socket *socket)
     return socket->parent.fd;
 }
 
+static int __setrecvbuffer(Inet_Tcp_Socket *socket,int nRecvBuf)
+{
+    int ret  = -1;
+    ret = setsockopt(socket->parent.fd,SOL_SOCKET,SO_RCVBUF,(const char*)&nRecvBuf,sizeof(int));
+    if (ret < 0) {
+        dbg_str(DBG_ERROR,"set socket recv buffersize failed! close socket")
+        socket->close(socket);
+        return ret;
+    } 
+
+    return ret;
+}
+
+static int __setsendbuffer(Inet_Tcp_Socket *socket,int nSendBuf)
+{
+    int ret  = -1;
+    ret = setsockopt(socket->parent.fd,SOL_SOCKET,SO_SNDBUF,(const char*)&nSendBuf,sizeof(int));
+    if (ret < 0) {
+        dbg_str(DBG_ERROR,"set socket send buffersize failed! close socket")
+        socket->close(socket);
+        return ret;
+    } 
+
+    return ret;  
+}
+
 static class_info_entry_t inet_tcp_socket_class_info[] = {
     [0 ] = {ENTRY_TYPE_OBJ,     "Socket", "parent", NULL, sizeof(void *)}, 
     [1 ] = {ENTRY_TYPE_FUNC_POINTER, "",  "set", __set, sizeof(void *)}, 
@@ -437,8 +469,8 @@ static class_info_entry_t inet_tcp_socket_class_info[] = {
     [14] = {ENTRY_TYPE_VFUNC_POINTER, "", "recv", __recv, sizeof(void *)}, 
     [15] = {ENTRY_TYPE_VFUNC_POINTER, "", "recvfrom", NULL, sizeof(void *)}, 
     [16] = {ENTRY_TYPE_VFUNC_POINTER, "", "recvmsg", NULL, sizeof(void *)},
-    [17] = {ENTRY_TYPE_VFUNC_POINTER, "", "close", NULL, sizeof(void *)},
-    [18] = {ENTRY_TYPE_VFUNC_POINTER, "", "setblock", NULL, sizeof(void *)},
+    [17] = {ENTRY_TYPE_IFUNC_POINTER, "", "close", NULL, sizeof(void *)},
+    [18] = {ENTRY_TYPE_IFUNC_POINTER, "", "setblock", NULL, sizeof(void *)},
     [19] = {ENTRY_TYPE_VFUNC_POINTER, "", "shutdown", NULL, sizeof(void *)},
     [20] = {ENTRY_TYPE_VFUNC_POINTER, "", "setnoclosewait", NULL, sizeof(void *)},
     [21] = {ENTRY_TYPE_VFUNC_POINTER, "", "setclosewait", NULL, sizeof(void *)},
@@ -450,7 +482,9 @@ static class_info_entry_t inet_tcp_socket_class_info[] = {
     [27] = {ENTRY_TYPE_VFUNC_POINTER, "", "getsockopt", NULL, sizeof(void *)},
     [28] = {ENTRY_TYPE_VFUNC_POINTER, "", "setsockopt", NULL, sizeof(void *)},
     [29] = {ENTRY_TYPE_VFUNC_POINTER, "", "setnoblocking", NULL, sizeof(void *)},
-    [30 ] = {ENTRY_TYPE_END}, 
+    [30] = {ENTRY_TYPE_VFUNC_POINTER, "", "setsendbuffer", __setsendbuffer, sizeof(void *)},
+    [31] = {ENTRY_TYPE_VFUNC_POINTER, "", "setrecvbuffer", __setrecvbuffer, sizeof(void *)},
+    [32] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("Inet_Tcp_Socket", inet_tcp_socket_class_info);
 
@@ -469,7 +503,8 @@ int test_inet_tcp_socket_send(TEST_ENTRY *entry)
 
     socket->set_timeout(socket,2);
 
-    ret = socket->connect(socket, "127.0.0.1", "8080");
+    ret = socket->connect(socket, "111.13.100.92", "8080");
+
     if (ret == 0) {
         dbg_str(DBG_SUC,"connect success");
     } else {
@@ -477,11 +512,8 @@ int test_inet_tcp_socket_send(TEST_ENTRY *entry)
     }
 
     dbg_str(DBG_SUC,"socket fd %d",socket->get_socketfd(socket));
-
-
-
+    
     ret = socket->send(socket,buf,len,0);
-
     // dbg_str(DBG_SUC,"socket send %d",ret);
     //socket->write(socket, test_str, strlen(test_str));
     bzero(buf,1024);

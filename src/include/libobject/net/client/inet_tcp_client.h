@@ -20,10 +20,14 @@ struct inet_tcp_client_s{
 	/*inherited methods from parent*/
     int (*bind)(Inet_Tcp_Client *socket, char *host, char *service);
     int (*connect)(Inet_Tcp_Client *socket, char *host, char *service);
-    ssize_t (*send)(Inet_Tcp_Client *socket, const void *buf, size_t len, int flags);
-    ssize_t (*recv)(Inet_Tcp_Client *socket, void *buf, size_t len, int flags);
+    net_qos_status_t (*send)(Inet_Tcp_Client *socket, const void *buf, size_t *len, int flags);
+    net_qos_status_t (*recv)(Inet_Tcp_Client *socket, void *buf, size_t *len, int flags);
 	int (*trustee)(Inet_Tcp_Client *client, struct timeval *tv,
                    void *work_callback, void *opaque);
+
+    int (*setrecvbuffer)(Inet_Tcp_Socket *client,int size);
+    int (*setsendbuffer)(Inet_Tcp_Socket *client,int size);
+    int (*setbuffer)(Inet_Tcp_Socket *client,int size);
 
 };
 

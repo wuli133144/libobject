@@ -62,6 +62,10 @@ struct inet_tcp_socket_s{
     int  (*get_timeout)(Inet_Tcp_Socket *);
 
     int (*get_socketfd)(Inet_Tcp_Socket *);
+
+    //------------------------------------
+    int (*setsendbuffer)(Inet_Tcp_Socket*,int size);
+    int (*setrecvbuffer)(Inet_Tcp_Socket*,int size);
     /*attr value*/
     
     int timeout;

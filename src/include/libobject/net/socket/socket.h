@@ -76,6 +76,9 @@ struct socket_s{
     void (*set_timeout)(Socket *,int timeout);
     int  (*get_timeout)(Socket *);
     int  (*get_socketfd)(Socket*);
+
+    int (*setsendbuffer)(Socket*,int size);
+    int (*setrecvbuffer)(Socket *,int size);
     //------------------------------------------------
     int fd;
     int socket_type;

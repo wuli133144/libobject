@@ -650,7 +650,10 @@ int __object_destroy(void *obj, char *type_name)
 
 int object_destroy(void *obj) 
 {
-    __object_destroy(obj, ((Obj *)obj)->name);
+    if (obj != NULL) {
+        __object_destroy(obj, ((Obj *)obj)->name);   
+        obj = NULL;
+    }
     return 0;
 }
 

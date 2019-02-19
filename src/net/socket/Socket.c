@@ -146,6 +146,10 @@ static int __set(Socket *socket, char *attrib, void *value)
         socket->set_timeout = value;
     } else if (strcmp(attrib, "get_socketfd") == 0) {
         socket->get_socketfd = value;
+    } else if (strcmp(attrib, "setsendbuffer") == 0) {
+        socket->setsendbuffer = value;
+    } else if (strcmp(attrib, "setrecvbuffer") == 0) {
+        socket->setrecvbuffer = value;
     } 
     else if (strcmp(attrib, "local_host") == 0) {
         strncpy(socket->local_host, value, strlen(value));
@@ -382,8 +386,10 @@ static int __setnonblocking(Socket *socket)
 }
 
 static int __close(Socket *socket)
-{
-    return close(socket->fd);
+{  
+    close(socket->fd);
+    socket->fd = -1;
+    return socket->fd;
 }
 
 static  void __setblock(Socket *socket,int bBlock)
@@ -477,11 +483,13 @@ static class_info_entry_t socket_class_info[] = {
     [27] = {ENTRY_TYPE_VFUNC_POINTER, "", "get_timeout", NULL, sizeof(void *)}, 
     [28] = {ENTRY_TYPE_VFUNC_POINTER, "", "set_timeout", NULL, sizeof(void *)}, 
     [29] = {ENTRY_TYPE_VFUNC_POINTER, "", "get_socketfd", NULL, sizeof(void *)}, 
-    [30] = {ENTRY_TYPE_STRING, "", "local_host", NULL, sizeof(void *)}, 
-    [31] = {ENTRY_TYPE_STRING, "", "local_service", NULL, sizeof(void *)}, 
-    [32] = {ENTRY_TYPE_STRING, "", "remote_host", NULL, sizeof(void *)}, 
-    [33] = {ENTRY_TYPE_STRING, "", "remote_service", NULL, sizeof(void *)}, 
-    [34] = {ENTRY_TYPE_END}, 
+    [30] = {ENTRY_TYPE_VFUNC_POINTER, "", "setsendbuffer", NULL, sizeof(void *)}, 
+    [31] = {ENTRY_TYPE_VFUNC_POINTER, "", "setrecvbuffer", NULL, sizeof(void *)}, 
+    [32] = {ENTRY_TYPE_STRING, "", "local_host", NULL, sizeof(void *)}, 
+    [33] = {ENTRY_TYPE_STRING, "", "local_service", NULL, sizeof(void *)}, 
+    [34] = {ENTRY_TYPE_STRING, "", "remote_host", NULL, sizeof(void *)}, 
+    [35] = {ENTRY_TYPE_STRING, "", "remote_service", NULL, sizeof(void *)}, 
+    [36] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("Socket", socket_class_info);
 

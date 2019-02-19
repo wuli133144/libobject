@@ -74,6 +74,7 @@ void *client(allocator_t *allocator,
 int client_connect(void *client, char *host, char *service)
 {
     Client *c = (Client *)client;
+    dbg_str(DBG_IMPORTANT,"client addr:%p",c);
     return c->connect(c, host, service);
 }
 
@@ -87,21 +88,26 @@ int client_nonblock(void *client)
 int client_close(void *client)
 {
     Client *c  = (Client *)client;
-    Socket * s = c->socket;
-    return s->close(s); 
+    return c->close(c); 
 }
 
-int client_send(void *client, void *buf, int len, int flags)
+net_qos_status_t client_send(void *client, void *buf, size_t * len, int flags)
 {
     Client *c = (Client *)client;
     return c->send(c, buf, len, flags);
 }
 
-int client_recv(void *client,void *buf,int len,int flags)
+net_qos_status_t client_recv(void *client,void *buf,size_t * len,int flags)
 {
     Client *c = (Client *)client;
     return c->recv(c, buf, len, flags);
 }
+
+// int client_close(void *client)
+// {
+//     Client *c = (Client *)client;
+//     return  c->close(c);
+// }
 
 int client_destroy(void *client)
 {

@@ -38,6 +38,7 @@
 #include <libobject/net/http/Response.h>
 #include <libobject/net/http/Client.h>
 #include <libobject/io/RingBuffer.h>
+#include <libobject/net/socket/inet_tcp_socket.h>
 
 static int __construct(Client *client, char *init_str)
 {
@@ -76,6 +77,12 @@ static int __set(Client *client, char *attrib, void *value)
         client->trustee = value;
     } else if (strcmp(attrib, "close") == 0) {
         client->close = value;
+    } else if (strcmp(attrib, "setbuffer") == 0) {
+        client->setbuffer = value;
+    } else if (strcmp(attrib, "setrecvbuffer") == 0) {
+        client->setrecvbuffer = value;
+    } else if (strcmp(attrib, "setsendbuffer") == 0) {
+        client->setsendbuffer = value;
     } 
     else {
         dbg_str(NET_DETAIL, "client set, not support %s setting", attrib);
@@ -96,36 +103,59 @@ static void *__get(Client *obj, char *attrib)
 
 static int __bind(Client *client, char *host, char *service)
 {
-    Socket *socket = client->socket;
+    Inet_Tcp_Socket *socket = client->socket;
 
     return socket->bind(socket, host, service);
 }
 
 static int __connect(Client *client, char *host, char *service)
 {
-    Socket *socket = client->socket;
+    Inet_Tcp_Socket *socket = client->socket;
+    dbg_str(DBG_IMPORTANT,"Socket addr:%p",socket);
 
     return socket->connect(socket, host, service);
 }
 
 static net_qos_status_t __send(Client *client, const void *buf, size_t *len, int flags)
 {
-    Socket *socket = client->socket;
+    Inet_Tcp_Socket *socket = client->socket;
 
     return socket->send(socket, buf, len, flags);
 }
 
 static net_qos_status_t __recv(Client *client, void *buf, size_t* len, int flags)
 {
-    Socket *socket = client->socket;
+    Inet_Tcp_Socket *socket = client->socket;
 
     return socket->recv(socket, buf, len, flags);
 }
 
 static int __close(Client *client)
 {
-    Socket *socket = client->socket;
+    Inet_Tcp_Socket *socket = client->socket;
     return socket->close(socket);
+}
+
+static int __setrecvbuffer(Client *client,int isze)
+{
+    Inet_Tcp_Socket *s  = client->socket;
+    return s->setrecvbuffer(s,isze);
+}
+
+static int __setsendbuffer(Client *client,int size)
+{
+    Inet_Tcp_Socket *s = client->socket;
+    return s->setsendbuffer(s,size);
+}
+
+static int __setbuffer(Client *client,int size)
+{
+    int ret = -1;
+    if ((ret = client->setsendbuffer(client,size)) == 0 && (ret = client->setrecvbuffer(client,size)) == 0)
+    {
+        return ret;
+    }
+    return ret;
 }
 
 static ssize_t __ev_callback(int fd, short event, void *arg)
@@ -148,7 +178,7 @@ static ssize_t __ev_callback(int fd, short event, void *arg)
     if (fd != socket->fd)
             dbg_str(DBG_WARNNING,"fd != socket->fd");
    
-    len = socket->recv(socket, buf, buf_len, 0);
+    len = socket->recv(socket, buf, &buf_len, 0);
     
     ret = response->response_parse(response,buf,len);
     if (ret < 0) {
@@ -193,7 +223,10 @@ static class_info_entry_t client_class_info[] = {
     [8 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "recv", __recv, sizeof(void *)}, 
     [9 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "trustee", __trustee, sizeof(void *)}, 
     [10 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "close", __close, sizeof(void *)}, 
-    [11] = {ENTRY_TYPE_END}, 
+    [11 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "setsendbuffer", __setsendbuffer, sizeof(void *)}, 
+    [12 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "setrecvbuffer", __setrecvbuffer, sizeof(void *)}, 
+    [13 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "setbuffer", __setbuffer, sizeof(void *)}, 
+    [14] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("Client", client_class_info);
 
