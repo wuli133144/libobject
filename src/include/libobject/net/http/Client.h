@@ -33,7 +33,6 @@ struct http_client_s{
     Client *c;
    
     char *host;
-    String * current_http_chunck;
     // RingBuffer *req_buffer;
     // RingBuffer *resp_buffer;  
 };

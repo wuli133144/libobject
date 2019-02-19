@@ -52,9 +52,6 @@ static int __construct(Http_Client *client,char *init_str)
     client->resp = OBJECT_NEW(allocator, Response, NULL);
     client->host = "127.0.0.1";
     client->c    = NULL;
-    // client->req_buffer  = OBJECT_NEW(allocator, RingBuffer, NULL);
-    // client->resp_buffer = OBJECT_NEW(allocator, RingBuffer, NULL);
-    client->current_http_chunck = OBJECT_NEW(allocator, String, NULL);
     return 0;
 }
 
@@ -64,7 +61,6 @@ static int __deconstruct(Http_Client *client)
 
     object_destroy(client->req);
     object_destroy(client->resp);
-    object_destroy(client->current_http_chunck);
     if (client->c != NULL) {
         client_destroy(client->c);
     }
@@ -247,7 +243,6 @@ static Response * __request_sync(Http_Client *hc)
         goto error;
     }
 
-
     ret = hc->c->send(hc->c,request_ctx,&len,0);
 
     if (ret < 0 ) {
@@ -271,15 +266,13 @@ static Response * __request_sync(Http_Client *hc)
             dbg_str(DBG_ERROR,"request_sync system::recv  error! ");
             goto error;
         } else if (ret == NET_SOCKET_CLOSE) { //recv data over
-            dbg_str(DBG_ERROR,"request_sync recv success ");
-            
+            dbg_str(DBG_ERROR,"request_sync recv success ");     
             #if 1
             ret = resp->parse_response_internal(resp);
             if (ret < 0) {
                 goto error;
             }
             #endif 
-
             client_close(hc->c);
             req->request_header_context->clear(req->request_header_context);
             return resp;
@@ -505,9 +498,8 @@ int test_http_client_sync(TEST_ENTRY *entry)
 
     String *str = req->request_header_context;
     
-     dbg_str(DBG_SUC,"http request:%s",str->c_str(str));
+    dbg_str(DBG_SUC,"http request:%s",str->c_str(str));
     //client->request_sync(client);
-
 
     #if 0
     response = client->request_sync(client);
