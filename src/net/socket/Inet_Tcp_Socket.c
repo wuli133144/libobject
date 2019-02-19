@@ -294,7 +294,6 @@ static  net_qos_status_t __recv(Inet_Tcp_Socket * socket, void *buf, size_t *len
     fd_set read_set;
     struct timeval tm_tv;
     int fd = socket->get_socketfd(socket);
-    Inet_Tcp_Socket *so = socket;
     tm_tv.tv_sec  = socket->timeout;
     tm_tv.tv_usec = 0;
 
@@ -306,26 +305,27 @@ static  net_qos_status_t __recv(Inet_Tcp_Socket * socket, void *buf, size_t *len
     {
         case -1:
             /* code */
-            so->close(so);
+            socket->close(socket);
             return NET_SOCKET_SELECT;
         case 0:
-            so->close(so);
+            socket->close(socket);
             return NET_SOCKET_TIMEOUT;
         default:
 
-            recvlen = recv(fd,buf,len,flags);
+            if (FD_ISSET(fd,&read_set)) {
+                recvlen = recv(fd,buf,len,flags);
+                if (recvlen < 0) {
+                    socket->close(socket);
+                    return NET_SOCKET_RECV;
+                }  else if(recvlen == 0) {
+                    socket->close(socket);
+                    return  NET_SOCKET_CLOSE;
+                }
 
-            if (recvlen < 0) {
-                so->close(so);
-                return NET_SOCKET_RECV;
-            }  else if(recvlen == 0) {
-                so->close(so);
-                return  NET_SOCKET_CLOSE;
+                *len =  recvlen;
+
+                return NET_SOCKET_SUCCESS;
             }
-
-            *len =  recvlen;
-
-            return NET_SOCKET_SUCCESS;
     }
     
 }
@@ -340,30 +340,32 @@ static  net_qos_status_t __send(Inet_Tcp_Socket * socket, void *buf, size_t *len
     tv_tm.tv_sec  = socket->timeout;
     tv_tm.tv_usec = 0; 
     fd = socket->parent.fd;
-    Inet_Tcp_Socket *so = socket;
-
+    
     ret = select(fd+1,NULL,&wset,NULL,&tv_tm);
 
     switch(ret) {
         case -1:
-            so->close(so);
+            socket->close(socket);
             return NET_SOCKET_SELECT;
         case 0:
-            so->close(so);
+            socket->close(ssocketo);
             return NET_SOCKET_TIMEOUT;
         default:
-            sendlen = send(fd,buf,len,flags);
-            if (sendlen < 0) {
-                so->close(so);
-                return NET_SOCKET_SEND;
-            } else if (sendlen == 0) {
-                so->close(so);
-                return NET_SOCKET_CLOSE;
+
+            if (FD_ISSET(fd,&wset)) {
+                sendlen = send(fd,buf,len,flags);
+                if (sendlen < 0) {
+                    socket->close(socket);
+                    return NET_SOCKET_SEND;
+                } else if (sendlen == 0) {
+                    socket->close(socket);
+                    return NET_SOCKET_CLOSE;
+                }
+
+                *len = sendlen;
+
+                return NET_SOCKET_SUCCESS;
             }
-
-            *len = sendlen;
-
-            return NET_SOCKET_SUCCESS;
     }   
 
 }

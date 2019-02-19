@@ -407,13 +407,9 @@ int test_http_client_sync(TEST_ENTRY *entry)
 
     client->set_opt(client,HTTP_OPT_METHOD,"GET");
     client->set_opt(client,HTTP_OPT_EFFECTIVE_URL,"127.0.0.1");
-    #if 1
-
-    #endif 
-
+    
     #if 0
     response = client->request_sync(client);
-
     if ( response == NULL ) {
         dbg_str(DBG_ERROR,"http request error!");
     }  else {
