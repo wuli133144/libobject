@@ -37,6 +37,9 @@
 #include <libobject/net/http/Client.h>
 #include <libobject/net/client/inet_tcp_client.h>
 
+#include <libobject/core/utils/json/cjson.h>
+
+
 static int __http_client_response_callback(void *task);
 
 static void __default_timeout_callback(void *);
@@ -454,24 +457,60 @@ int test_http_client_sync(TEST_ENTRY *entry)
 
     client = OBJECT_NEW(allocator, Http_Client, NULL);
 
+    # if 1
+     //test json
+    cjson_t *root;
+    cjson_t *fmt;
+    cjson_t *img;
+    cjson_t *thm;
+    cjson_t *fld, *c;
+    char *out;
+    int i;
+    int ids[4] = { 116, 943, 234, 38793 };
+
+    root = cjson_create_object();{
+        cjson_add_item_to_object(root, "Image", img = cjson_create_object());{
+            cjson_add_number_to_object(img, "Width", 800);
+            cjson_add_number_to_object(img, "Height", 600);
+            cjson_add_string_to_object(img, "Title", "View from 15th Floor");
+            cjson_add_item_to_object(img, "Thumbnail", thm = cjson_create_object());{
+                cjson_add_string_to_object(thm, "Url", "http:/*www.example.com/image/481989943");
+                cjson_add_number_to_object(thm, "Height", 125);
+                cjson_add_string_to_object(thm, "Width", "100");
+            }
+            cjson_add_item_to_object(img, "IDs", cjson_create_int_array(ids, 4));
+        }
+        cjson_add_string_to_object(root, "type", "rect");
+        cjson_add_number_to_object(root, "width", 1920);
+        cjson_add_number_to_object(root, "height", 1080);
+        cjson_add_false_to_object (root, "interlace");
+    }
+
+    out = cjson_print(root);
+    #else 
+      char * jsonStr = "{\"semantic\":{\"slots\":{\"name\":\"张三\"}}, \"rc\":0, \"operation\":\"CALL\", \"service\":\"telephone\", \"text\":\"打电话给张三\"}";
+    #endif 
+
     client->set_opt(client,HTTP_OPT_METHOD,"POST");
     client->set_opt(client,HTTP_OPT_EFFECTIVE_URL,"127.0.0.1/push_qos_list");
-    client->set_opt(client,HTTP_OPT_JSON_FORMAT,"XXXXXXXXXXXXXXXXXX");
+    client->set_opt(client,HTTP_OPT_JSON_FORMAT,out);
 
     Request *req = NULL;
     req = client->get_request(client);
     if (req == NULL ) {
         object_destroy(client);
+        free(out);
+        cjson_delete(root);
         return -1;
     }
 
-    // req->write(req);
+    req->write(req);
 
-    // String *str = req->request_header_context;
+    String *str = req->request_header_context;
     
-    // dbg_str(DBG_SUC,"http request:%s",str->c_str(str));
-    client->request_sync(client);
-    
+     dbg_str(DBG_SUC,"http request:%s",str->c_str(str));
+    //client->request_sync(client);
+
 
     #if 0
     response = client->request_sync(client);
@@ -483,7 +522,9 @@ int test_http_client_sync(TEST_ENTRY *entry)
             response->response_context->c_str(response->response_context));
     }
     #endif 
-
+    object_destroy(client);
+    free(out);
+    cjson_delete(root);
     pause();
     return 1;
 }
