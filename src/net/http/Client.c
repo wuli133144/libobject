@@ -435,10 +435,6 @@ int test_http_client_sync(TEST_ENTRY *entry)
             if ( response == NULL ) {
                 dbg_str(DBG_ERROR,"http request error!");
             }  else {
-                // char buffer[4096] = {0};
-                // int len = 4096;
-                // void * buffer = allocator_mem_alloc()
-                //response->buffer->buffer_read(response->buffer,buffer,4096);
                 dbg_str(DBG_SUC,"http response length:%d current size:%d buffer_size:%d",
                                     response->content_length,
                                     response->current_size,
@@ -493,6 +489,7 @@ int test_http_client_sync(TEST_ENTRY *entry)
 
     client->set_opt(client,HTTP_OPT_METHOD,"POST");
     client->set_opt(client,HTTP_OPT_EFFECTIVE_URL,"127.0.0.1/push_qos_list");
+    client->set_opt(client,HTTP_OPT_CONNTENT_TYPE,"application/json");
     client->set_opt(client,HTTP_OPT_JSON_FORMAT,out);
 
     Request *req = NULL;
