@@ -290,7 +290,7 @@ static Response * __request_sync(Http_Client *hc)
             #endif  
         }
     }
-    
+
 error:
     req->request_header_context->clear(req->request_header_context);
     client_close(hc->c);
@@ -465,11 +465,13 @@ int test_http_client_sync(TEST_ENTRY *entry)
         return -1;
     }
 
-    req->write(req);
+    // req->write(req);
 
-    String *str = req->request_header_context;
+    // String *str = req->request_header_context;
     
-    dbg_str(DBG_SUC,"http request:%s",str->c_str(str));
+    // dbg_str(DBG_SUC,"http request:%s",str->c_str(str));
+    client->request_sync(client);
+    
 
     #if 0
     response = client->request_sync(client);

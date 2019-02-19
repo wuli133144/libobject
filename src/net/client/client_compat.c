@@ -103,12 +103,6 @@ net_qos_status_t client_recv(void *client,void *buf,size_t * len,int flags)
     return c->recv(c, buf, len, flags);
 }
 
-// int client_close(void *client)
-// {
-//     Client *c = (Client *)client;
-//     return  c->close(c);
-// }
-
 int client_destroy(void *client)
 {
     return object_destroy(client);
