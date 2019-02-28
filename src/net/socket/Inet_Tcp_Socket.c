@@ -129,6 +129,10 @@ static int __set(Inet_Tcp_Socket *socket, char *attrib, void *value)
         socket->setsendbuffer = value;
     } else if (strcmp(attrib, "setrecvbuffer") == 0) {
         socket->setrecvbuffer = value;
+    } else if (strcmp(attrib, "send_async") == 0) {
+        socket->send_async = value;
+    } else if (strcmp(attrib, "recv_async") == 0) {
+        socket->recv_async = value;
     } 
     else {
         dbg_str(NET_DETAIL, "socket set, not support %s setting", attrib);
@@ -226,7 +230,7 @@ static int __inet_tcp_connect_internal(Inet_Tcp_Socket * socket, char *host, cha
     return ret;
 }
 
-static int __connect(Inet_Tcp_Socket * so, char *host, char *service)
+static int __connect_async(Inet_Tcp_Socket * so, char *host, char *service)
 {   
     int ret = -1,ret_select = -1;
     int error = 0;
@@ -287,7 +291,7 @@ static int __connect(Inet_Tcp_Socket * so, char *host, char *service)
     return -1;
 }
 
-static  net_qos_status_t __recv(Inet_Tcp_Socket * socket, void *buf, size_t *len, int flags)
+static  socket_status_t __recv_async(Inet_Tcp_Socket * socket, void *buf, size_t *len, int flags)
 {
     int ret;
     ssize_t recvlen;
@@ -299,6 +303,7 @@ static  net_qos_status_t __recv(Inet_Tcp_Socket * socket, void *buf, size_t *len
 
     FD_ZERO(&read_set);
     FD_SET(fd,&read_set);
+
     ret = select(fd+1,&read_set,NULL,NULL,&tm_tv);
 
     switch (ret)
@@ -313,7 +318,7 @@ static  net_qos_status_t __recv(Inet_Tcp_Socket * socket, void *buf, size_t *len
         default:
 
             if (FD_ISSET(fd,&read_set)) {
-                recvlen = recv(fd,buf,len,flags);
+                recvlen = recv(fd,buf,*len,flags);
                 if (recvlen < 0) {
                     socket->close(socket);
                     return NET_SOCKET_RECV;
@@ -330,7 +335,7 @@ static  net_qos_status_t __recv(Inet_Tcp_Socket * socket, void *buf, size_t *len
     
 }
 
-static  net_qos_status_t __send(Inet_Tcp_Socket * socket, void *buf, size_t *len, int flags)
+static  socket_status_t __send_async(Inet_Tcp_Socket * socket, void *buf, size_t *len, int flags)
 {
     int ret = 0,fd = -1,sendlen = -1;
     fd_set wset;
@@ -348,12 +353,12 @@ static  net_qos_status_t __send(Inet_Tcp_Socket * socket, void *buf, size_t *len
             socket->close(socket);
             return NET_SOCKET_SELECT;
         case 0:
-            socket->close(ssocketo);
+            socket->close(socket);
             return NET_SOCKET_TIMEOUT;
         default:
 
             if (FD_ISSET(fd,&wset)) {
-                sendlen = send(fd,buf,len,flags);
+                sendlen = send(fd,buf,*len,flags);
                 if (sendlen < 0) {
                     socket->close(socket);
                     return NET_SOCKET_SEND;
@@ -369,48 +374,6 @@ static  net_qos_status_t __send(Inet_Tcp_Socket * socket, void *buf, size_t *len
     }   
 
 }
-
-// static ssize_t __recvAll(Inet_Tcp_Socket *socket,void *buf,size_t len,int flags)
-// {
-//     int ret;
-//     ssize_t recvlen;
-//     fd_set read_set;
-//     struct timeval tm_tv;
-//     tm_tv.tv_sec  = 10;
-//     tm_tv.tv_usec = 0;
-
-//     FD_ZERO(&read_set);
-//     FD_SET(socket->parent.fd,&read_set);
-
-//     char recv_buffer[RECV_BUFFER_LEN];
-//     bzero(recv_buffer,sizeof(recv_buffer)/sizeof(char));
-
-//     while (1) {
-
-//         ret = select(socket->parent.fd+1,&read_set,NULL,NULL,&tm_tv);
-//         switch(ret) {
-//             case -1:
-//                 socket->parent.close(&socket->parent);
-//                 return -1;
-//             case 0:
-//                 socket->parent.close(&socket->parent);
-//                 return -2;
-//             default:
-//                 recvlen = socket->parent.recv(&socket->parent,recv_buffer,RECV_BUFFER_LEN,flags);
-
-//                 if (recvlen < 0) {
-//                     socket->parent.close(&socket->parent);
-//                     return -3;
-//                 } else if (recvlen == 0) {
-//                     socket->parent.close(&socket->parent);
-//                     return 0;
-//                 } else {
-//                     strcat()
-//                 }
-//         }
-//     }
-       
-// }
 
 static void __set_timeout(Inet_Tcp_Socket *socket,int timeout)
 {
@@ -459,34 +422,37 @@ static class_info_entry_t inet_tcp_socket_class_info[] = {
     [2 ] = {ENTRY_TYPE_FUNC_POINTER, "",  "get", __get, sizeof(void *)}, 
     [3 ] = {ENTRY_TYPE_FUNC_POINTER, "",  "construct", __construct, sizeof(void *)}, 
     [4 ] = {ENTRY_TYPE_FUNC_POINTER, "",  "deconstruct", __deconstrcut, sizeof(void *)}, 
-    [5 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "bind", NULL, sizeof(void *)}, 
-    [6 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "listen", NULL, sizeof(void *)}, 
+    [5 ] = {ENTRY_TYPE_IFUNC_POINTER, "", "bind", NULL, sizeof(void *)}, 
+    [6 ] = {ENTRY_TYPE_IFUNC_POINTER, "", "listen", NULL, sizeof(void *)}, 
     [7 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "accept", __accept, sizeof(void *)}, 
     [8 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "accept_fd", __accept_fd, sizeof(void *)}, 
-    [9 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "connect", __connect, sizeof(void *)}, 
-    [10] = {ENTRY_TYPE_VFUNC_POINTER, "", "write", NULL, sizeof(void *)}, 
-    [11] = {ENTRY_TYPE_VFUNC_POINTER, "", "sendto", NULL, sizeof(void *)}, 
-    [12] = {ENTRY_TYPE_VFUNC_POINTER, "", "sendmsg", NULL, sizeof(void *)}, 
-    [13] = {ENTRY_TYPE_VFUNC_POINTER, "", "read", NULL, sizeof(void *)}, 
-    [14] = {ENTRY_TYPE_VFUNC_POINTER, "", "recv", __recv, sizeof(void *)}, 
-    [15] = {ENTRY_TYPE_VFUNC_POINTER, "", "recvfrom", NULL, sizeof(void *)}, 
-    [16] = {ENTRY_TYPE_VFUNC_POINTER, "", "recvmsg", NULL, sizeof(void *)},
+    [9 ] = {ENTRY_TYPE_IFUNC_POINTER, "", "connect", NULL, sizeof(void *)}, 
+    [10] = {ENTRY_TYPE_IFUNC_POINTER, "", "write", NULL, sizeof(void *)}, 
+    [11] = {ENTRY_TYPE_IFUNC_POINTER, "", "sendto", NULL, sizeof(void *)}, 
+    [12] = {ENTRY_TYPE_IFUNC_POINTER, "", "sendmsg", NULL, sizeof(void *)}, 
+    [13] = {ENTRY_TYPE_IFUNC_POINTER, "", "read", NULL, sizeof(void *)}, 
+    [14] = {ENTRY_TYPE_IFUNC_POINTER, "", "recv", NULL, sizeof(void *)}, 
+    [15] = {ENTRY_TYPE_IFUNC_POINTER, "", "recvfrom", NULL, sizeof(void *)}, 
+    [16] = {ENTRY_TYPE_IFUNC_POINTER, "", "recvmsg", NULL, sizeof(void *)},
     [17] = {ENTRY_TYPE_IFUNC_POINTER, "", "close", NULL, sizeof(void *)},
     [18] = {ENTRY_TYPE_IFUNC_POINTER, "", "setblock", NULL, sizeof(void *)},
-    [19] = {ENTRY_TYPE_VFUNC_POINTER, "", "shutdown", NULL, sizeof(void *)},
-    [20] = {ENTRY_TYPE_VFUNC_POINTER, "", "setnoclosewait", NULL, sizeof(void *)},
-    [21] = {ENTRY_TYPE_VFUNC_POINTER, "", "setclosewait", NULL, sizeof(void *)},
-    [22] = {ENTRY_TYPE_VFUNC_POINTER, "", "setclosewaitdefault", NULL, sizeof(void *)},
+    [19] = {ENTRY_TYPE_IFUNC_POINTER, "", "shutdown", NULL, sizeof(void *)},
+    [20] = {ENTRY_TYPE_IFUNC_POINTER, "", "setnoclosewait", NULL, sizeof(void *)},
+    [21] = {ENTRY_TYPE_IFUNC_POINTER, "", "setclosewait", NULL, sizeof(void *)},
+    [22] = {ENTRY_TYPE_IFUNC_POINTER, "", "setclosewaitdefault", NULL, sizeof(void *)},
     [23] = {ENTRY_TYPE_FUNC_POINTER, "",  "set_timeout", __set_timeout, sizeof(void *)},
     [24] = {ENTRY_TYPE_FUNC_POINTER, "",  "get_timeout", __get_timeout, sizeof(void *)},
-    [25] = {ENTRY_TYPE_VFUNC_POINTER, "", "send", __send, sizeof(void *)},
+    [25] = {ENTRY_TYPE_IFUNC_POINTER, "", "send", NULL, sizeof(void *)},
     [26] = {ENTRY_TYPE_VFUNC_POINTER, "", "get_socketfd", __get_socketfd, sizeof(void *)},
-    [27] = {ENTRY_TYPE_VFUNC_POINTER, "", "getsockopt", NULL, sizeof(void *)},
-    [28] = {ENTRY_TYPE_VFUNC_POINTER, "", "setsockopt", NULL, sizeof(void *)},
-    [29] = {ENTRY_TYPE_VFUNC_POINTER, "", "setnoblocking", NULL, sizeof(void *)},
+    [27] = {ENTRY_TYPE_IFUNC_POINTER, "", "getsockopt", NULL, sizeof(void *)},
+    [28] = {ENTRY_TYPE_IFUNC_POINTER, "", "setsockopt", NULL, sizeof(void *)},
+    [29] = {ENTRY_TYPE_IFUNC_POINTER, "", "setnoblocking", NULL, sizeof(void *)},
     [30] = {ENTRY_TYPE_VFUNC_POINTER, "", "setsendbuffer", __setsendbuffer, sizeof(void *)},
     [31] = {ENTRY_TYPE_VFUNC_POINTER, "", "setrecvbuffer", __setrecvbuffer, sizeof(void *)},
-    [32] = {ENTRY_TYPE_END}, 
+    [32] = {ENTRY_TYPE_VFUNC_POINTER, "", "connect_async", __connect_async, sizeof(void *)},
+    [33] = {ENTRY_TYPE_VFUNC_POINTER, "", "send_async", __send_async, sizeof(void *)},
+    [34] = {ENTRY_TYPE_VFUNC_POINTER, "", "recv_async", __recv_async, sizeof(void *)},
+    [35] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("Inet_Tcp_Socket", inet_tcp_socket_class_info);
 
@@ -553,4 +519,43 @@ void test_inet_tcp_socket_recv(TEST_ENTRY *entry)
     object_destroy(socket);
 }
 
+int test_inet_tcp_socket_async(TEST_ENTRY * entry)
+{
+    Socket *socket;
+    allocator_t *allocator = allocator_get_default_alloc();
+
+    char *test_str = "GET / HTTP/1.0 \r\n\r\n";
+    int ret = 0;
+    ssize_t len = -1;
+    char buf[1024]={0};
+    strncpy(buf,test_str,strlen(test_str));
+
+    socket = OBJECT_NEW(allocator, Inet_Tcp_Socket, NULL);
+
+    socket->set_timeout(socket,2);
+
+    ret = socket->connect_async(socket, "111.13.100.92", "8080");
+
+    if (ret == 0) {
+        dbg_str(DBG_SUC,"connect success");
+    } else {
+        dbg_str(DBG_ERROR,"connect failed");
+    }
+
+    dbg_str(DBG_SUC,"socket fd %d",socket->get_socketfd(socket));
+    
+    ret = socket->send_async(socket,buf,len,0);
+    // dbg_str(DBG_SUC,"socket send %d",ret);
+    //socket->write(socket, test_str, strlen(test_str));
+    bzero(buf,1024);
+    len = socket->recv(socket,buf,1024,0);
+    dbg_str(DBG_SUC,"connect success %d %s",len,buf);
+    pause();
+    //while(1) sleep(1);
+
+    object_destroy(socket);
+    return 1;
+}
+
 REGISTER_STANDALONE_TEST_FUNC(test_inet_tcp_socket_send);
+REGISTER_STANDALONE_TEST_FUNC(test_inet_tcp_socket_async);

@@ -77,7 +77,7 @@ target_link_libraries(test object)
 SET_TARGET_PROPERTIES (object PROPERTIES VERSION 1.2 SOVERSION 1)
 
 
-install (TARGETS test DESTINATION bin)
-install (DIRECTORY ${LIBRARY_DIR_PATH} DESTINATION lib)
+install(TARGETS test DESTINATION bin)
+install(DIRECTORY ${LIBRARY_DIR_PATH} DESTINATION lib)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/include/libobject DESTINATION include)
 

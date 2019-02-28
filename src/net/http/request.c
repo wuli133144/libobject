@@ -303,7 +303,7 @@ static void __convert_implent(void *key,void *element,void *arg)
 
 static void __convert_map_2_str_internal(Request *self)
 {
-    dbg_str(DBG_SUC,"self->map addr:%p %d ",self->map,self->map->size(self->map));
+    //dbg_str(DBG_SUC,"self->map addr:%p %d ",self->map,self->map->size(self->map));
     ((Map *)self->map)->for_each_arg((Map *)self->map,__convert_implent,(void *)self);
 }
 

@@ -150,7 +150,13 @@ static int __set(Socket *socket, char *attrib, void *value)
         socket->setsendbuffer = value;
     } else if (strcmp(attrib, "setrecvbuffer") == 0) {
         socket->setrecvbuffer = value;
-    } 
+    } else if (strcmp(attrib, "connect_async") == 0) {
+        socket->connect_async = value;
+    } else if (strcmp(attrib, "send_async") == 0) {
+        socket->send_async = value;
+    } else if (strcmp(attrib, "recv_async") == 0) {
+        socket->recv_async = value;
+    }
     else if (strcmp(attrib, "local_host") == 0) {
         strncpy(socket->local_host, value, strlen(value));
     } else if (strcmp(attrib, "local_service") == 0) {
@@ -463,12 +469,12 @@ static class_info_entry_t socket_class_info[] = {
     [7 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "accept", NULL, sizeof(void *)}, 
     [8 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "accept_fd", NULL, sizeof(void *)}, 
     [9 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "connect", __connect, sizeof(void *)}, 
-    [10] = {ENTRY_TYPE_VFUNC_POINTER, "", "write", NULL, sizeof(void *)}, 
-    [11] = {ENTRY_TYPE_VFUNC_POINTER, "", "send", NULL, sizeof(void *)}, 
+    [10] = {ENTRY_TYPE_VFUNC_POINTER, "", "write", __write, sizeof(void *)}, 
+    [11] = {ENTRY_TYPE_VFUNC_POINTER, "", "send", __send, sizeof(void *)}, 
     [12] = {ENTRY_TYPE_VFUNC_POINTER, "", "sendto", __sendto, sizeof(void *)}, 
     [13] = {ENTRY_TYPE_VFUNC_POINTER, "", "sendmsg", __sendmsg, sizeof(void *)}, 
-    [14] = {ENTRY_TYPE_VFUNC_POINTER, "", "read", NULL, sizeof(void *)}, 
-    [15] = {ENTRY_TYPE_VFUNC_POINTER, "", "recv", NULL, sizeof(void *)}, 
+    [14] = {ENTRY_TYPE_VFUNC_POINTER, "", "read", __read, sizeof(void *)}, 
+    [15] = {ENTRY_TYPE_VFUNC_POINTER, "", "recv", __recv, sizeof(void *)}, 
     [16] = {ENTRY_TYPE_VFUNC_POINTER, "", "recvfrom", __recvfrom, sizeof(void *)}, 
     [17] = {ENTRY_TYPE_VFUNC_POINTER, "", "recvmsg", __recvmsg, sizeof(void *)}, 
     [18] = {ENTRY_TYPE_VFUNC_POINTER, "", "getsockopt", __getsockopt, sizeof(void *)}, 
@@ -485,11 +491,14 @@ static class_info_entry_t socket_class_info[] = {
     [29] = {ENTRY_TYPE_VFUNC_POINTER, "", "get_socketfd", NULL, sizeof(void *)}, 
     [30] = {ENTRY_TYPE_VFUNC_POINTER, "", "setsendbuffer", NULL, sizeof(void *)}, 
     [31] = {ENTRY_TYPE_VFUNC_POINTER, "", "setrecvbuffer", NULL, sizeof(void *)}, 
-    [32] = {ENTRY_TYPE_STRING, "", "local_host", NULL, sizeof(void *)}, 
-    [33] = {ENTRY_TYPE_STRING, "", "local_service", NULL, sizeof(void *)}, 
-    [34] = {ENTRY_TYPE_STRING, "", "remote_host", NULL, sizeof(void *)}, 
-    [35] = {ENTRY_TYPE_STRING, "", "remote_service", NULL, sizeof(void *)}, 
-    [36] = {ENTRY_TYPE_END}, 
+    [32] = {ENTRY_TYPE_VFUNC_POINTER, "", "connect_async", NULL, sizeof(void *)}, 
+    [33] = {ENTRY_TYPE_VFUNC_POINTER, "", "send_async", NULL, sizeof(void *)}, 
+    [34] = {ENTRY_TYPE_VFUNC_POINTER, "", "recv_async", NULL, sizeof(void *)}, 
+    [35] = {ENTRY_TYPE_STRING, "", "local_host", NULL, sizeof(void *)}, 
+    [36] = {ENTRY_TYPE_STRING, "", "local_service", NULL, sizeof(void *)}, 
+    [37] = {ENTRY_TYPE_STRING, "", "remote_host", NULL, sizeof(void *)}, 
+    [38] = {ENTRY_TYPE_STRING, "", "remote_service", NULL, sizeof(void *)}, 
+    [39] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("Socket", socket_class_info);
 

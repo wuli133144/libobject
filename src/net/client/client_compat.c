@@ -78,6 +78,12 @@ int client_connect(void *client, char *host, char *service)
     return c->connect(c, host, service);
 }
 
+int client_connect_async(void *client,char *host,char *service)
+{
+    Client *c = (Client *)client;
+    return c->connect_async(c,host,service);
+}
+
 int client_nonblock(void *client)
 {
     Client *c  = (Client *)client;
@@ -91,16 +97,28 @@ int client_close(void *client)
     return c->close(c); 
 }
 
-net_qos_status_t client_send(void *client, void *buf, size_t * len, int flags)
+ssize_t client_send(void *client, void *buf, size_t  len, int flags)
 {
     Client *c = (Client *)client;
     return c->send(c, buf, len, flags);
 }
 
-net_qos_status_t client_recv(void *client,void *buf,size_t * len,int flags)
+ssize_t client_recv(void *client,void *buf,size_t  len,int flags)
 {
     Client *c = (Client *)client;
     return c->recv(c, buf, len, flags);
+}
+
+socket_status_t client_recv_async(void *client,void *buffer,size_t *len,int flags)
+{
+    Client  *c = client;
+    return c->recv_async(client,buffer,len,flags);
+}
+
+socket_status_t client_send_async(void *client,void *buf,size_t *len,int flags)
+{
+    Client * c = client;
+    return c->send_async(client,buf,len,flags);
 }
 
 int client_destroy(void *client)

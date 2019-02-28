@@ -91,6 +91,8 @@ static int __set(Unix_Udp_Socket *socket, char *attrib, void *value)
         socket->recvfrom = value;
     } else if (strcmp(attrib, "recvmsg") == 0) {
         socket->recvmsg = value;
+    } else if (strcmp(attrib, "send") == 0) {
+        socket->send = value;
     } 
     else {
         dbg_str(NET_DETAIL, "socket set, not support %s setting", attrib);
@@ -164,7 +166,8 @@ static class_info_entry_t inet_udp_socket_class_info[] = {
     [11] = {ENTRY_TYPE_IFUNC_POINTER, "", "recv", NULL, sizeof(void *)}, 
     [12] = {ENTRY_TYPE_IFUNC_POINTER, "", "recvfrom", NULL, sizeof(void *)}, 
     [13] = {ENTRY_TYPE_IFUNC_POINTER, "", "recvmsg", NULL, sizeof(void *)}, 
-    [14] = {ENTRY_TYPE_END}, 
+    [14] = {ENTRY_TYPE_IFUNC_POINTER, "", "send", NULL, sizeof(void *)}, 
+    [15] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("Unix_Udp_Socket", inet_udp_socket_class_info);
 

@@ -83,6 +83,12 @@ static int __set(Client *client, char *attrib, void *value)
         client->setrecvbuffer = value;
     } else if (strcmp(attrib, "setsendbuffer") == 0) {
         client->setsendbuffer = value;
+    } else if (strcmp(attrib, "connect_async") == 0) {
+        client->connect_async = value;
+    } else if (strcmp(attrib, "recv_async") == 0) {
+        client->recv_async = value;
+    } else if (strcmp(attrib, "send_async") == 0) {
+        client->send_async = value;
     } 
     else {
         dbg_str(NET_DETAIL, "client set, not support %s setting", attrib);
@@ -110,29 +116,47 @@ static int __bind(Client *client, char *host, char *service)
 
 static int __connect(Client *client, char *host, char *service)
 {
-    Inet_Tcp_Socket *socket = client->socket;
+    Socket *socket = client->socket;
     dbg_str(DBG_IMPORTANT,"Socket addr:%p",socket);
 
     return socket->connect(socket, host, service);
 }
 
-static net_qos_status_t __send(Client *client, const void *buf, size_t *len, int flags)
+static ssize_t __send(Client *client, const void *buf, size_t len, int flags)
 {
-    Inet_Tcp_Socket *socket = client->socket;
-
-    return socket->send(socket, buf, len, flags);
+    Socket * s = client->socket;
+    return s->send(s,buf,len,flags);
 }
 
-static net_qos_status_t __recv(Client *client, void *buf, size_t* len, int flags)
+static ssize_t __recv(Client *client, const void *buf, size_t *len, int flags)
 {
-    Inet_Tcp_Socket *socket = client->socket;
+    Socket * s= client->socket;
+    return s->recv(s,buf,len,flags);
+}
 
-    return socket->recv(socket, buf, len, flags);
+static int __connect_async(Client *client, char *host, char *service)
+{
+    Socket * s = client->socket;
+    dbg_str(DBG_IMPORTANT,"Socket addr:%p",socket);
+    
+    return s->connect_async(s,host,service);
+}
+
+static socket_status_t __send_async(Client *client, const void *buf, size_t *len, int flags)
+{
+    Socket *socket = client->socket;
+    return socket->send_async(socket, buf, len, flags);
+}
+
+static socket_status_t __recv_async(Client *client, const void *buf, size_t* len, int flags)
+{
+    Socket *socket = client->socket;
+    return socket->recv_async(socket, buf, len, flags);
 }
 
 static int __close(Client *client)
 {
-    Inet_Tcp_Socket *socket = client->socket;
+    Socket *socket = client->socket;
     return socket->close(socket);
 }
 
@@ -168,7 +192,6 @@ static ssize_t __ev_callback(int fd, short event, void *arg)
 
     int ret  = 0;
     allocator_t *allocator = allocator_get_default_alloc();
-    String * tmp = http_client->current_http_chunck;
 
 #define EV_CALLBACK_MAX_BUF_LEN 1024 
     char buf[EV_CALLBACK_MAX_BUF_LEN] = {0};
@@ -226,7 +249,10 @@ static class_info_entry_t client_class_info[] = {
     [11 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "setsendbuffer", __setsendbuffer, sizeof(void *)}, 
     [12 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "setrecvbuffer", __setrecvbuffer, sizeof(void *)}, 
     [13 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "setbuffer", __setbuffer, sizeof(void *)}, 
-    [14] = {ENTRY_TYPE_END}, 
+    [14 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "connect_async", __connect_async, sizeof(void *)}, 
+    [15 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "recv_async", __recv_async, sizeof(void *)}, 
+    [16 ] = {ENTRY_TYPE_VFUNC_POINTER, "", "send_async", __send_async, sizeof(void *)}, 
+    [17] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("Client", client_class_info);
 

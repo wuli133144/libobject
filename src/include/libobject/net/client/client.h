@@ -21,9 +21,13 @@ struct client_s{
     /*virtual methods*/
     int (*bind)(Client *client, char *host, char *service);
     int (*connect)(Client *client, char *host, char *service);
+    int (*connect_async)(Client *client, char *host, char *service);
+    
+    ssize_t (*send)(Client *client, const void *buf, size_t len, int flags);
+    ssize_t (*recv)(Client *client, const void *buf, size_t len, int flags);
 
-    net_qos_status_t (*send)(Client *client, const void *buf, size_t *len, int flags);
-    net_qos_status_t (*recv)(Client *client, void *buf, size_t *len, int flags);
+    socket_status_t (*send_async)(Client *client, const void *buf, size_t *len, int flags);
+    socket_status_t (*recv_async)(Client *client, const void *buf, size_t *len, int flags);
 
 	int (*trustee)(Client *client, struct timeval *tv,
                    void *work_callback, void *opaque);
@@ -53,10 +57,13 @@ void *client(allocator_t *allocator,
              void *opaque);
 
 int client_connect(void *client, char *host, char *service);
+int client_connect_async(void *client, char *host, char *service);
 
-net_qos_status_t  client_send(void *client, void *buf, size_t *len, int flags);
+socket_status_t  client_send_async(void *client, void *buf, size_t *len, int flags);
+socket_status_t  client_recv_async(void *client, void *buf, size_t *len, int flags);
 
-net_qos_status_t  client_recv(void *client, void *buf, size_t *len, int flags);
+ssize_t  client_send(void *client, void *buf, size_t len, int flags);
+ssize_t  client_recv(void *client, void *buf, size_t len, int flags);
 
 int client_destroy(void *client);
 

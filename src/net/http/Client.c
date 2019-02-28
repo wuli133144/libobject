@@ -38,7 +38,7 @@
 #include <libobject/net/client/inet_tcp_client.h>
 
 #include <libobject/core/utils/json/cjson.h>
-
+#include <libobject/core/utils/timeval/timeval.h>
 
 static int __http_client_response_callback(void *task);
 
@@ -88,6 +88,8 @@ static int __set(Http_Client *client, char *attrib, void *value)
         client->request_sync = value;
     } else if (strcmp(attrib, "set_opt") == 0) {
         client->set_opt = value;
+    } else if (strcmp(attrib, "reset") == 0) {
+        client->reset = value;
     } 
     else {
         dbg_str(EV_DETAIL,"client set, not support %s setting",attrib);
@@ -231,7 +233,7 @@ static Response * __request_sync(Http_Client *hc)
     }
 
 
-    ret = client_connect(hc->c,host,port);
+    ret = client_connect_async(hc->c,host,port);
     if (ret != 0) {
         dbg_str(DBG_ERROR,"request_sync connect (%s %s) failed! ",host,port);
         goto error;
@@ -243,7 +245,7 @@ static Response * __request_sync(Http_Client *hc)
         goto error;
     }
 
-    ret = hc->c->send(hc->c,request_ctx,&len,0);
+    ret = hc->c->send_async(hc->c,request_ctx,&len,0);
 
     if (ret < 0 ) {
         dbg_str(DBG_ERROR,"request_sync send  failed! ");
@@ -255,7 +257,7 @@ static Response * __request_sync(Http_Client *hc)
         length = 4096;
         memset(stmpbuffer,0,length);
         
-        ret = hc->c->recv(hc->c,stmpbuffer,&length,0);
+        ret = hc->c->recv_async(hc->c,stmpbuffer,&length,0);
         if (ret == NET_SOCKET_SELECT) {
             dbg_str(DBG_ERROR,"request_sync recv select error! ");
             goto error;
@@ -274,7 +276,7 @@ static Response * __request_sync(Http_Client *hc)
             }
             #endif 
             client_close(hc->c);
-            req->request_header_context->clear(req->request_header_context);
+            hc->reset(hc);
             return resp;
         } else if (ret == NET_SOCKET_SUCCESS) {
             #if 1
@@ -288,7 +290,7 @@ static Response * __request_sync(Http_Client *hc)
     }
 
 error:
-    req->request_header_context->clear(req->request_header_context);
+    hc->reset(hc);
     client_close(hc->c);
     return NULL; 
 }
@@ -304,6 +306,14 @@ static int __set_opt(Http_Client *client,http_opt_t opt,void *value)
     return req->set_opt(req,opt,value);
 }
 
+static void __reset(Http_Client * client)
+{
+    Request * req = client->get_request(client);
+    if (req) 
+        req->request_header_context->clear(req->request_header_context);
+    return;
+}
+
 static class_info_entry_t concurent_class_info[] = {
     [0 ] = {ENTRY_TYPE_OBJ,"Obj","obj",NULL,sizeof(void *)},
     [1 ] = {ENTRY_TYPE_FUNC_POINTER,"","set",__set,sizeof(void *)},
@@ -315,7 +325,8 @@ static class_info_entry_t concurent_class_info[] = {
     [7 ] = {ENTRY_TYPE_VFUNC_POINTER,"","request",__request,sizeof(void *)},
     [8 ] = {ENTRY_TYPE_VFUNC_POINTER,"","request_sync",__request_sync,sizeof(void *)},
     [9 ] = {ENTRY_TYPE_VFUNC_POINTER,"","set_opt",__set_opt,sizeof(void *)},
-    [10 ] = {ENTRY_TYPE_END},
+    [10 ] = {ENTRY_TYPE_VFUNC_POINTER,"","reset",__reset,sizeof(void *)},
+    [11 ] = {ENTRY_TYPE_END},
 };
 REGISTER_CLASS("Http_Client",concurent_class_info);
 
@@ -378,6 +389,7 @@ int test_http_client(TEST_ENTRY *entry)
     client->set_opt(client,HTTP_OPT_CALLBACK,test_request_callback);
     client->set_opt(client,HTTP_OPT_CALLBACKDATA,client);
     client->set_opt(client,HTTP_OPT_TIMEOUT,&t);
+   
     #endif 
 
     #if 1
@@ -514,5 +526,131 @@ int test_http_client_sync(TEST_ENTRY *entry)
     return 1;
 }
 
+
+
+int test_http_client_post_json(TEST_ENTRY * entry)
+{
+    cjson_t *root;
+    cjson_t *fmt;
+    cjson_t *img;
+    cjson_t *thm;
+    cjson_t * seek_array;
+
+    cjson_t *out_json;
+    void *buf ;
+    int size,ret,i;
+    int array[] = {100,200,201};
+
+    root = cjson_create_object();
+    seek_array = cjson_create_int_array(array,sizeof(array)/sizeof(int));
+
+    cjson_add_item_to_object(root,"seek_delay_array",seek_array);
+
+    buf = cjson_print(root);
+
+    dbg_str(DBG_SUC,"cjson array object:%s",buf);
+    
+    ret = cjson_has_object_item(root,"seek_delay_array");
+    if (ret) {
+        out_json = cjson_get_object_item(root,"seek_delay_array");
+        size = cjson_get_array_size(out_json);
+        for (i = 0 ; i < size; i++)   {
+            cjson_t *j =cjson_get_array_item(out_json,i);
+            if (j == NULL) continue;
+            dbg_str(DBG_SUC,"current index :%d json value: %d",i,j->valueint);
+        }
+    }
+
+    free(buf);
+    cjson_delete(root);
+
+    return 1;
+}
+
+
+static char * print_play_qos_json_str()
+{
+    cjson_t * root = NULL;
+    cjson_t *session = NULL;
+    cjson_t *load_delay_array = NULL;
+    cjson_t *seek_delay_array = NULL;
+    char *out =  NULL;
+    int buf[] = {100,103,105};
+    int buffer[] = {100,103,105};
+    root = cjson_create_object();
+    cjson_add_item_to_object(root,"id",cjson_create_string("431242143242"));
+    cjson_add_item_to_object(root,"device_id",cjson_create_string("431242143242"));
+    cjson_add_item_to_object(root,"url",cjson_create_string("http://www.baidu.com/1.ts"));
+    cjson_add_item_to_object(root,"duration",cjson_create_number(222));
+    cjson_add_item_to_object(root,"type",cjson_create_string("vod"));
+    cjson_add_item_to_object(root,"timestamp",cjson_create_number(get_current_tick()));
+
+    session = cjson_create_object();
+    cjson_add_item_to_object(session,"start_timestamp",cjson_create_number(get_current_tick()));
+    cjson_add_item_to_object(session,"first_loading_delaytime",cjson_create_number(get_current_tick()));
+    cjson_add_item_to_object(session,"loading_delay_cnt",cjson_create_number(get_current_tick()));
+     
+    load_delay_array = cjson_create_int_array(buf,sizeof(buf)/sizeof(int));
+    cjson_add_item_to_object(session,"load_delay_array",load_delay_array);
+
+    seek_delay_array = cjson_create_int_array(buffer,sizeof(buffer)/sizeof(int));
+    cjson_add_item_to_object(session,"seek_delay_array",seek_delay_array);
+
+    cjson_add_item_to_object(root,"session",session);
+    
+    out = cjson_print(root);
+    cjson_delete(root);
+    
+    return out;
+}
+
+int test_http_play_qos(TEST_ENTRY * entry)
+{
+#if 0   
+    cjson_t * root = NULL;
+    cjson_t *session = NULL;
+    cjson_t *load_delay_array = NULL;
+    cjson_t *seek_delay_array = NULL;
+    int buf[] = {100,103,105};
+    int buffer[] = {100,103,105};
+    root = cjson_create_object();
+
+    cjson_add_item_to_object(root,"id",cjson_create_string("431242143242"));
+    cjson_add_item_to_object(root,"device_id",cjson_create_string("431242143242"));
+    cjson_add_item_to_object(root,"url",cjson_create_string("http://www.baidu.com/1.ts"));
+    cjson_add_item_to_object(root,"duration",cjson_create_number(222));
+    cjson_add_item_to_object(root,"type",cjson_create_string("vod"));
+    cjson_add_item_to_object(root,"timestamp",cjson_create_number(1551085616));
+
+    session = cjson_create_object();
+    cjson_add_item_to_object(session,"start_timestamp",cjson_create_number(1551085616));
+    cjson_add_item_to_object(session,"first_loading_delaytime",cjson_create_number(1551085616));
+    cjson_add_item_to_object(session,"loading_delay_cnt",cjson_create_number(1551085616));
+     
+    load_delay_array = cjson_create_int_array(buf,sizeof(buf)/sizeof(int));
+    cjson_add_item_to_object(session,"load_delay_array",load_delay_array);
+
+    seek_delay_array = cjson_create_int_array(buffer,sizeof(buffer)/sizeof(int));
+    cjson_add_item_to_object(session,"seek_delay_array",seek_delay_array);
+
+    cjson_add_item_to_object(root,"session",session);
+    
+    char *out = cjson_print(root);
+    dbg_str(DBG_SUC,"construct json: %s",out);
+    cjson_delete(root);
+    free(out);
+#endif 
+    int i =1000;
+    while (i--) {
+        char * out = print_play_qos_json_str();
+        dbg_str(DBG_SUC,"construct json: %s",out);
+        free(out);
+    }
+    return 1;
+}
+
 REGISTER_STANDALONE_TEST_FUNC(test_http_client);
 REGISTER_STANDALONE_TEST_FUNC(test_http_client_sync);
+REGISTER_STANDALONE_TEST_FUNC(test_http_client_post_json);
+REGISTER_STANDALONE_TEST_FUNC(test_http_play_qos);
+

@@ -316,7 +316,9 @@ int vector_remove(vector_t *vector, int index, void **element)
     } else if (vector_pos_equal(&it, &vector->begin)&&
              vector_pos_equal(&from, &vector->end))
     {
-        dbg_str(VECTOR_WARNNING, "vector is NULL");
+        *element = vector_head[remove_pos];
+        vector_copy(vector, &it, &from, count);
+        vector_pos_init(&vector->end, end_pos - 1,vector);
     } else if (element != NULL) {
         *element = vector_head[remove_pos];
         vector_copy(vector, &it, &from, count);

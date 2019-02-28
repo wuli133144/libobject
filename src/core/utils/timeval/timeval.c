@@ -90,3 +90,10 @@ int timeval_print(struct timeval *t)
     return 0;
 }
 
+long get_current_tick()
+{
+    struct timeval time_now;
+    gettimeofday(&time_now,NULL);
+    return time_now.tv_sec*1000+time_now.tv_usec/1000;
+}
+

@@ -29,6 +29,7 @@ struct _vector_s{
     int    (*empty)(Vector *vector);
 
     void (*clear)(Vector *vector);
+    void (*clear_mem)(Vector *vector);
 
     vector_t *vector;
 	uint32_t value_size;

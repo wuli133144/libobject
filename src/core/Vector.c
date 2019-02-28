@@ -34,6 +34,7 @@
 #include <libobject/core/utils/config/config.h>
 #include <libobject/core/vector.h>
 #include <libobject/core/utils/registry/registry.h>
+#include <libobject/core/string.h>
 
 static int __construct(Vector *vector, char *init_str)
 {
@@ -94,6 +95,8 @@ static int __set(Vector *vector, char *attrib, void *value)
         vector->clear = value;
     } else if (strcmp(attrib,"empty") == 0) {
         vector->empty = value;
+    } else if (strcmp(attrib,"clear_mem") == 0) {
+        vector->clear_mem = value;
     }
     else if (strcmp(attrib, "value_size") == 0) {
         vector->value_size = *(uint32_t *)value;
@@ -201,15 +204,30 @@ static int  __empty(Vector * vector)
 static void __clear(Vector *vector)
 {
     vector_pos_t pos,next;
-    vector_t *v=vector->vector;
+    vector_t *v = vector->vector;
     void *element;
-    int index =0;
+    int i = 0;
+    
+    while(!vector->empty(vector)) {
+        vector->remove(vector,0,(void **)&element);
+        if (element != NULL) {
+            object_destroy(element);
+        }
+    }
+}
 
-    for(vector_begin(v,&pos),vector_pos_next(&pos,&next);
-        !vector_pos_equal(&pos,&v->end);
-        pos=next,vector_pos_next(&pos,&next))
-    {
-        vector->remove(vector,index,(void **)&element);
+static void __clear_mem(Vector *vector)
+{
+    vector_pos_t pos,next;
+    vector_t *v = vector->vector;
+    void *element;
+    int i = 0;
+    
+    while(!vector->empty(vector)) {
+        vector->remove(vector,0,(void **)&element);
+        if (element != NULL) {
+            allocator_mem_free(vector->obj.allocator,element);
+        }
     }
 }
 
@@ -230,9 +248,10 @@ static class_info_entry_t vector_class_info[] = {
     [13] = {ENTRY_TYPE_VFUNC_POINTER, "", "clear", __clear, sizeof(void *)}, 
     [14] = {ENTRY_TYPE_VFUNC_POINTER, "", "size", __size, sizeof(void *)}, 
     [15] = {ENTRY_TYPE_VFUNC_POINTER, "", "empty", __empty, sizeof(void *)}, 
-    [16] = {ENTRY_TYPE_UINT32_T, "", "value_size", 0, sizeof(void *)}, 
-    [17] = {ENTRY_TYPE_UINT32_T, "", "capacity", 0, sizeof(void *)}, 
-    [18] = {ENTRY_TYPE_END}, 
+    [16] = {ENTRY_TYPE_VFUNC_POINTER, "", "clear_mem", __clear_mem, sizeof(void *)}, 
+    [17] = {ENTRY_TYPE_UINT32_T, "", "value_size", 0, sizeof(void *)}, 
+    [18] = {ENTRY_TYPE_UINT32_T, "", "capacity", 0, sizeof(void *)}, 
+    [19] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("Vector", vector_class_info);
 
@@ -376,5 +395,154 @@ static int test_obj_vector(TEST_ENTRY *entry)
     return 1;
 
 }
+
+static void destroy_v(Vector * vector)
+{
+    vector_pos_t pos, next;
+    vector_t *v = vector->vector;
+    void *element;
+    int index = 0;
+    String *p = NULL;
+    
+    int size = vector->size(vector);
+    
+
+    while (!vector->empty(vector))
+    {
+        vector->remove(vector,0, (void **)&element);
+        if(element != NULL){
+            //allocator_mem_free(vector->obj.allocator,(void *)element);
+            //allocator_mem_free(allocator_get_default_alloc(),(void *)element);
+            //free(element);
+            //element = NULL;
+            // p = (String *)element;
+            //dbg_str(DBG_ERROR,"delete element:%s addr:%p",p->c_str(p),p);
+            //free(p);
+            // //free(p);
+            //object_destroy(element); 
+            allocator_mem_free(vector->obj.allocator,element);
+        }
+    }
+}
+
+static void print(int index,void *ele)
+{
+    int *p = ele;
+    dbg_str(DBG_ERROR,"loop index:%d element:%d addr:%p",index,*p,p);
+}
+
+static void printS(int index,void *ele)
+{
+    String *p = ele;
+    dbg_str(DBG_ERROR,"loop index:%d element:%s addr:%p",index,p->c_str(p),p);
+}
+
+static int test_vector_free_func(TEST_ENTRY * entry)
+{
+    Vector *vector;
+    allocator_t *allocator = allocator_get_default_alloc();
+    int pre_alloc_count, after_alloc_count;
+    configurator_t * c;
+
+    int ret,i ,size = 0;
+    int value_size = 25;
+    int *element;
+    int *element1;
+    pre_alloc_count = allocator->alloc_count;
+    
+    c = cfg_alloc(allocator); 
+    dbg_str(DBG_SUC, "configurator_t addr:%p", c);
+    cfg_config_num(c, "/Vector", "capacity", 10) ;  
+    cfg_config_num(c, "/Vector", "value_size", value_size) ;
+
+    vector = OBJECT_NEW(allocator,Vector,c);
+    int buf[5] = {12,34,45,56,7};
+    int *p[5];
+#if 0
+    vector->add(vector,&buf[0]);
+    vector->add(vector,&buf[1]);
+    vector->add(vector,&buf[2]);
+    vector->add(vector,&buf[3]);
+    vector->add(vector,&buf[4]);
+    
+    dbg_str(DBG_SUC,"current vector size:%d",size=vector->size(vector));
+    
+    //get elements
+    for (i =0 ; i <size ; i++) {
+        vector->peek_at(vector,i,(void **)&p[i]);
+        dbg_str(DBG_SUC,"current elements index:%d value:%d",i,*p[i])
+    }
+
+//    vector->remove(vector,3,(void **)&element);
+//    dbg_str(DBG_SUC,"remove current elements index:3 value:%d",*element);
+
+//    vector->peek_at(vector,3,(void **)&element);
+//    dbg_str(DBG_SUC,"current elements index:%d value:%d",3,*element);
+
+   dbg_str(DBG_SUC,"current vector size:%d",vector->size(vector));
+
+    //vector->clear(vector);
+    dbg_str(DBG_SUC,"current vector size:%d",vector->size(vector));
+    if (vector->empty(vector)) {
+        dbg_str(DBG_SUC,"current vector empty size:%d",vector->size(vector));
+    }
+    
+    dbg_str(DBG_SUC,"current vector empty size:%d",vector->size(vector));
+    #endif  
+    //int * pp = allocator_mem_alloc(allocator,sizeof(int)*5);
+    
+    //dbg_str(DBG_SUC,"current vector empty size:%d",vector->size(vector));
+    #if 0
+    int * pp =  (int *)malloc(sizeof(int)*5);
+    for (i = 0; i < 5;i++) {
+        pp[i] = i;
+    }
+    
+    for (i = 0; i < 5;i++) {
+        dbg_str(DBG_SUC,"current index:%d value:%d addr :%p",i,pp[i],&pp[i]);
+        vector->add(vector,(void *)&pp[i]);
+    }
+
+    vector->for_each(vector,print);
+    //vector->free_vector_elements(vector);
+    destroy_v(vector);
+    free(pp);
+    #elif 0
+        String * s1 = OBJECT_NEW(allocator,String,NULL);
+        s1->assign(s1,"s1");
+
+        String * s2 = OBJECT_NEW(allocator,String,NULL);
+        s2->assign(s2,"s2");
+        vector->add(vector,(void*)s1);
+        vector->add(vector,(void*)s2);
+
+        dbg_str(DBG_SUC,"current vector  size:%d",vector->size(vector));    
+        vector->for_each(vector,printS);
+        //vector->clear(vector);
+        destroy_v(vector);
+    #else 
+        int * p1 = allocator_mem_alloc(vector->obj.allocator,sizeof(int));
+        *p1 = 1;
+        int * p2 = allocator_mem_alloc(vector->obj.allocator,sizeof(int));
+        *p2 = 2;
+
+        vector->add(vector,(void*)p1);
+        vector->add(vector,(void*)p2);
+
+        dbg_str(DBG_SUC,"current vector  size:%d",vector->size(vector));    
+        vector->for_each(vector,print);
+        vector->clear_mem(vector);
+        //destroy_v(vector);
+
+    #endif 
+
+    dbg_str(DBG_SUC,"current vector empty size:%d",vector->size(vector));
+
+    object_destroy(vector);
+    cfg_destroy(c);
+    return 1;
+}
+
 REGISTER_TEST_FUNC(test_obj_vector);
+REGISTER_STANDALONE_TEST_FUNC(test_vector_free_func);
 
