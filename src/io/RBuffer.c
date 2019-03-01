@@ -243,15 +243,15 @@ static int __read(RBuffer *self, void *dst, int len)
 
 static int __write(RBuffer *self, void *src, int len)
 { 
-    int available_write_size = 0;
-    int internal_end_size    = 0;
+    int available_write_size = self->available_size;
+    int internal_end_size    = self->capacity - self->w_offset;
     int ret                  = 0;
     if (src == NULL || len <= 0 ) {
         len = 0;
         return len;
     }
 
-    if (available_write_size == 0 || self->capacity < len) {
+    if (available_write_size < len ) {
         //extend space
         ret = self->expand_container(self,len);
         if (ret < 0) {
