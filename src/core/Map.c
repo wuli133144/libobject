@@ -86,6 +86,10 @@ static int __set(Map *map, char *attrib, void *value)
         map->size = value;
     } else if (strcmp(attrib, "is_empty") == 0) {
         map->is_empty = value;
+    } else if (strcmp(attrib, "clear") == 0) {
+        map->clear = value;
+    } else if (strcmp(attrib, "clear_mem") == 0) {
+        map->clear_mem = value;
     }
     else if (strcmp(attrib, "name") == 0) {
         strncpy(map->name, value, strlen(value));
@@ -176,8 +180,10 @@ static class_info_entry_t map_class_info[] = {
     [15] = {ENTRY_TYPE_VFUNC_POINTER, "", "set_cmp_func", NULL, sizeof(void *)}, 
     [16] = {ENTRY_TYPE_VFUNC_POINTER, "", "size", NULL, sizeof(void *)},
     [17] = {ENTRY_TYPE_VFUNC_POINTER, "", "is_empty", NULL, sizeof(void *)},
-    [18] = {ENTRY_TYPE_STRING, "char", "name", NULL, 0}, 
-    [19] = {ENTRY_TYPE_END}, 
+    [18] = {ENTRY_TYPE_VFUNC_POINTER, "", "clear", NULL, sizeof(void *)},
+    [19] = {ENTRY_TYPE_VFUNC_POINTER, "", "clear_mem", NULL, sizeof(void *)},
+    [20] = {ENTRY_TYPE_STRING, "char", "name", NULL, 0}, 
+    [21] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("Map", map_class_info);
 

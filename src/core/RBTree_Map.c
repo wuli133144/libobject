@@ -35,6 +35,8 @@
 #include <libobject/core/rbtree_map.h>
 #include <libobject/core/linked_list.h>
 
+#include <libobject/core/string.h>
+
 static int
 __find_same_key_node(rbtree_map_t *map, 
                      struct rb_node *node,
@@ -129,7 +131,13 @@ static int __set(Map *m, char *attrib, void *value)
          map->size = value;
     } else if (strcmp(attrib, "is_empty") == 0) {
         map->is_empty = value;
-    } else if (strcmp(attrib, "key_size") == 0) {
+    } else if (strcmp(attrib, "clear") == 0) {
+        map->clear = value;
+    }  else if (strcmp(attrib, "clear_mem") == 0) {
+        map->clear_mem = value;
+    }  else if (strcmp(attrib, "for_each_arg") == 0) {
+        map->for_each_arg = value;
+    }  else if (strcmp(attrib, "key_size") == 0) {
         map->key_size = *((uint16_t *)value);
     } else if (strcmp(attrib, "value_size") == 0) {
         map->value_size = *((uint16_t *)value);
@@ -298,10 +306,59 @@ static int __size(Map *map)
     sync_unlock(&(rbtree_map->map_lock));
     return count;
 }
+
 static int __is_empty(Map *map)
 {
     return  ((RBTree_Map *)map)->size(map) > 0 ? 0 : 1 ;
 }
+
+static void __destory_map_internal(void *key,void *ele,void *arg)
+{
+   void *element     = NULL;
+   RBTree_Map * map  =(RBTree_Map *)arg;
+   map->remove(map,key,(void **)&element);
+
+   if (element)
+        object_destroy(element);
+    if (key)
+        object_destroy(key);
+}
+
+static void __destory_map_memory_internal(void *key,void *ele,void *arg)
+{
+   void *element     = NULL;
+   RBTree_Map * map  =(RBTree_Map *)arg;
+   map->remove(map,key,(void **)&element);
+   if (element)
+        allocator_mem_free(map->map.obj.allocator,element);
+   if (key)
+        allocator_mem_free(map->map.obj.allocator,key);
+}
+
+//note:只能用来释放
+//key_type:object
+//value_type:object
+static void __clear(Map * map)
+{
+    if (((RBTree_Map *)map)->is_empty(((RBTree_Map *)map))) {
+        return;
+    }
+    ((Map *)map)->for_each_arg((Map *)map,__destory_map_internal,(void *)map);
+}
+
+//note只能用来释放
+//key_type:alloc
+//value_type:alloc
+//注意：不支持malloc free
+static void __clear_mem(Map *map)
+{
+    if (((RBTree_Map *)map)->is_empty(((RBTree_Map *)map))) {
+        return;
+    }
+
+    ((Map *)map)->for_each_arg((Map *)map,__destory_map_memory_internal,(void *)map);
+}
+
 static class_info_entry_t rbtree_map_class_info[] = {
     [0 ] = {ENTRY_TYPE_OBJ, "Map", "map", NULL, sizeof(void *)}, 
     [1 ] = {ENTRY_TYPE_FUNC_POINTER, "", "set", __set, sizeof(void *)}, 
@@ -319,10 +376,13 @@ static class_info_entry_t rbtree_map_class_info[] = {
     [13] = {ENTRY_TYPE_VFUNC_POINTER, "", "set_cmp_func", __set_cmp_func, sizeof(void *)}, 
     [14] = {ENTRY_TYPE_VFUNC_POINTER, "", "is_empty", __is_empty, sizeof(void *)},
     [15] = {ENTRY_TYPE_VFUNC_POINTER, "", "size", __size, sizeof(void *)}, 
-    [16] = {ENTRY_TYPE_UINT16_T, "", "key_size", NULL, sizeof(short)}, 
-    [17] = {ENTRY_TYPE_UINT16_T, "", "value_size", NULL, sizeof(short)}, 
-    [18] = {ENTRY_TYPE_UINT8_T, "", "key_type", NULL, sizeof(short)}, 
-    [19] = {ENTRY_TYPE_END}, 
+    [16] = {ENTRY_TYPE_VFUNC_POINTER, "", "clear", __clear, sizeof(void *)}, 
+    [17] = {ENTRY_TYPE_VFUNC_POINTER, "", "for_each_arg", NULL, sizeof(void *)}, 
+    [18] = {ENTRY_TYPE_VFUNC_POINTER, "", "clear_mem",__clear_mem, sizeof(void *)}, 
+    [19] = {ENTRY_TYPE_UINT16_T, "", "key_size", NULL, sizeof(short)}, 
+    [20] = {ENTRY_TYPE_UINT16_T, "", "value_size", NULL, sizeof(short)}, 
+    [21] = {ENTRY_TYPE_UINT8_T, "", "key_type", NULL, sizeof(short)}, 
+    [22] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("RBTree_Map", rbtree_map_class_info);
 
@@ -645,3 +705,79 @@ int Test_rbtree_map_size(TEST_ENTRY *entry)
     return ret;
 }
 REGISTER_TEST_FUNC(Test_rbtree_map_size);
+
+static  int test_map_clear_obj(TEST_ENTRY *entry)
+{
+    Map *map;
+    allocator_t *allocator = allocator_get_default_alloc();
+    struct test *t, t0, t1, t2, t3, t4, t5;
+    int ret = 0;
+    init_test_instance(&t0, 0, 2);
+    init_test_instance(&t1, 1, 2);
+    init_test_instance(&t2, 2, 2);
+    init_test_instance(&t3, 3, 2);
+    init_test_instance(&t4, 4, 2);
+    init_test_instance(&t5, 5, 2);
+    map             = OBJECT_NEW(allocator, RBTree_Map, NULL);
+    String * key1   = OBJECT_NEW(allocator,String,NULL);
+    String * value1 = OBJECT_NEW(allocator,String,NULL);
+    String * key2   = OBJECT_NEW(allocator,String,NULL);
+    String * value2 = OBJECT_NEW(allocator,String,NULL);
+
+    key1->assign(key1,"key1");
+    key1->assign(key1,"value1");
+    key2->assign(key1,"key2");
+    value2->assign(key1,"value2");
+
+
+    map->add(map, key1, value1);
+    map->add(map, key2, value2);
+
+    dbg_str(DBG_IMPORTANT,"test_map_clear_obj map_size:%d",map->size(map));
+    
+    map->clear(map);
+
+    object_destroy(map);
+
+    return 1;
+}
+REGISTER_STANDALONE_TEST_FUNC(test_map_clear_obj);
+
+static  int test_map_clear_mem_obj(TEST_ENTRY *entry)
+{
+    Map *map;
+    allocator_t *allocator = allocator_get_default_alloc();
+    struct test *t, t0, t1, t2, t3, t4, t5;
+    int ret = 0;
+    init_test_instance(&t0, 0, 2);
+    init_test_instance(&t1, 1, 2);
+    init_test_instance(&t2, 2, 2);
+    init_test_instance(&t3, 3, 2);
+    init_test_instance(&t4, 4, 2);
+    init_test_instance(&t5, 5, 2);
+
+    map          = OBJECT_NEW(allocator, RBTree_Map, NULL);
+
+    char *key1   = allocator_mem_alloc(allocator,sizeof(char)*4);
+    char *value1 = allocator_mem_alloc(allocator,sizeof(char)*6);
+    char *key2   = allocator_mem_alloc(allocator,sizeof(char)*4);
+    char *value2 = allocator_mem_alloc(allocator,sizeof(char)*6);
+
+    strcpy(key1,"key1");
+    strcpy(value1,"value1");
+    strcpy(key2,"key2");
+    strcpy(value2,"value2");
+
+
+    map->add(map, key1, value1);
+    map->add(map, key2, value2);
+
+    dbg_str(DBG_IMPORTANT,"test_map_clear_obj map_size:%d",map->size(map));
+    
+    map->clear_mem(map);
+
+    object_destroy(map);
+
+    return 1;
+}
+REGISTER_STANDALONE_TEST_FUNC(test_map_clear_mem_obj);

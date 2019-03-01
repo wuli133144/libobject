@@ -19,19 +19,23 @@ struct _map_s{
 
 	/*virtual methods reimplement*/
 
-    int (*set_cmp_func)(Map *map, void *func);
-    int (*add)(Map *map,void *key,void *value);
-    int (*search)(Map *map,void *key,void **element);
-    int (*search_all_same_key)(Map *map,void *key, List *list);
-    int (*remove)(Map *map,void *key,void **element);
-    int (*del)(Map *map, void *key);
+    int  (*set_cmp_func)(Map *map, void *func);
+    int  (*add)(Map *map,void *key,void *value);
+    int  (*search)(Map *map,void *key,void **element);
+    int  (*search_all_same_key)(Map *map,void *key, List *list);
+    int  (*remove)(Map *map,void *key,void **element);
+    int  (*del)(Map *map, void *key);
     void (*for_each)(Map *map,void (*func)(void *key, void *element));
     void (*for_each_arg)(Map *map,void (*func)(void *key, void *element, void *arg),void *arg);
     Iterator *(*begin)(Map *map);
     Iterator *(*end)(Map *map);
-    int (*destroy)(Map *map);
-    int (*size)(Map*);
-    int (*is_empty)(Map *);
+    int  (*destroy)(Map *map);
+    
+    int  (*size)(Map*);
+    int  (*is_empty)(Map *);
+    void (*clear)(Map *);
+    void (*clear_mem)(Map *);
+
 
 #define MAX_NAME_LEN 50
     char name[MAX_NAME_LEN];
