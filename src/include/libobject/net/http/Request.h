@@ -5,7 +5,7 @@
 #include <libobject/core/utils/dbg/debug.h>
 #include <libobject/core/obj.h>
 #include <libobject/core/rbtree_map.h>
-#include <libobject/io/RingBuffer.h>
+#include <libobject/io/RBuffer.h>
 #include <libobject/core/string.h>
 #include <libobject/concurrent/worker.h>
 

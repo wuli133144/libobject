@@ -7,7 +7,7 @@
 #include <libobject/net/http/Request.h>
 #include <libobject/net/http/Response.h>
 #include <libobject/net/client/client.h>
-#include <libobject/io/RingBuffer.h>
+#include <libobject/io/RBuffer.h>
 
 
 typedef struct http_client_s Http_Client;
@@ -33,8 +33,8 @@ struct http_client_s{
     Client *c;
    
     char *host;
-    // RingBuffer *req_buffer;
-    // RingBuffer *resp_buffer;  
+    // RBuffer *req_buffer;
+    // RBuffer *resp_buffer;  
 };
 
 #endif

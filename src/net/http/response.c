@@ -42,7 +42,7 @@ static int __construct(Response *response,char *init_str)
     char buf[2048];
 
     dbg_str(DBG_DETAIL,"response construct, response addr:%p",response);
-    response->buffer = OBJECT_NEW(response->obj.allocator,RingBuffer,NULL); 
+    response->buffer = OBJECT_NEW(response->obj.allocator,RBuffer,NULL); 
     response->response_context = OBJECT_NEW(allocator,String,NULL);
     response->current_size  = 0;
     response->content_length = 0;
@@ -96,7 +96,7 @@ static void *__get(Response *obj, char *attrib)
     return NULL;
 }
 
-static int __set_buffer(Response *response, RingBuffer *buffer)
+static int __set_buffer(Response *response, RBuffer *buffer)
 {
     response->buffer = buffer;
 
@@ -110,14 +110,14 @@ static int __response_parse(Response *response,void *buffer,int len)
         return -1;
     }
 
-    RingBuffer *rbuffer = response->buffer;
+    RBuffer *rbuffer = response->buffer;
     int pos_start,pos_end,ret;
     String *resp = response->response_context;
     String *tmp = NULL;
     String *tmpbuffer = NULL;
 
     if (len) {
-        rbuffer->buffer_write(rbuffer,buffer,len);
+        rbuffer->write(rbuffer,buffer,len);
     }
 
     if (!response->content_length) {
@@ -146,7 +146,7 @@ static int __response_parse(Response *response,void *buffer,int len)
        tmp = NULL;
     }
 
-    response->current_size = rbuffer->buffer_used_size(rbuffer);
+    response->current_size = rbuffer->has_used_size(rbuffer);
     return len;
 }
 
@@ -157,11 +157,11 @@ static int __parse_response_internal(Response *response)
     char * buffer = NULL,*find_pos = NULL;
     allocator_t *allocator = response->obj.allocator;
 
-    size = response->buffer->buffer_used_size(response->buffer);
+    size = response->buffer->has_used_size(response->buffer);
     buffer = allocator_mem_alloc(allocator,size);
     memset(buffer,0,size);
 
-    response->buffer->buffer_read(response->buffer,buffer,size);
+    response->buffer->read(response->buffer,buffer,size);
     find_pos = strstr(buffer,"\r\n\r\n");
     if (find_pos < 0) {
         goto end;

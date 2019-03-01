@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <libobject/core/utils/dbg/debug.h>
 #include <libobject/core/obj.h>
-#include <libobject/io/RingBuffer.h>
+#include <libobject/io/RBuffer.h>
 #include <libobject/core/string.h>
 typedef enum response_status
 {
@@ -29,14 +29,14 @@ struct response_s{
     void *(*get)(void *obj, char *attrib);
 
 	/*virtual methods reimplement*/
-    int (*set_buffer)(Response *response, RingBuffer *buffer);
+    int (*set_buffer)(Response *response, RBuffer *buffer);
     int (*read)(Response *response);
     int (*response_parse)(Response *response,void *buffer,int len);
     int (*parse_response_internal)(Response *);
     int current_size;
     int content_length;
     response_status_t response_status;
-    RingBuffer *buffer;
+    RBuffer *buffer;
     String *response_context;
 };
 

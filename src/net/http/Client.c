@@ -36,7 +36,6 @@
 #include <libobject/core/utils/registry/registry.h>
 #include <libobject/net/http/Client.h>
 #include <libobject/net/client/inet_tcp_client.h>
-
 #include <libobject/core/utils/json/cjson.h>
 #include <libobject/core/utils/timeval/timeval.h>
 
@@ -334,10 +333,10 @@ static int __http_client_response_callback(void *arg)
 {
     int ret = 0 ;
     dbg_str(DBG_SUC,"default request callback run recv");
-    char buf[4096] = {0};
+    char buf[4096]       = {0};
     Http_Client * client = arg;
-    RingBuffer * ring_buf = client->resp->buffer;
-    ring_buf->buffer_read(ring_buf,buf,4096);
+    RBuffer * ring_buf   = client->resp->buffer;
+    ring_buf->read(ring_buf,buf,4096);
 
     dbg_str(DBG_SUC,"request callback run recv %s",buf);
     return ret; 
@@ -360,8 +359,8 @@ static int test_request_callback(void *arg)
     Http_Client * client = arg;
     Client *c = client->c;
 
-    RingBuffer * ring_buf = client->resp->buffer;
-    ring_buf->buffer_read(ring_buf,buf,4096);
+    RBuffer * ring_buf = client->resp->buffer;
+    ring_buf->read(ring_buf,buf,4096);
 
     dbg_str(DBG_SUC,"request callback run recv %s",buf);
     Request *req = client->req;
@@ -439,7 +438,7 @@ int test_http_client_sync(TEST_ENTRY *entry)
                 dbg_str(DBG_SUC,"http response length:%d current size:%d buffer_size:%d",
                                     response->content_length,
                                     response->current_size,
-                                    response->buffer->buffer_used_size(response->buffer));  
+                                    response->buffer->has_used_size(response->buffer));  
                 dbg_str(DBG_SUC,"http request success:%s",
                                 response->response_context->c_str(response->response_context));
             }

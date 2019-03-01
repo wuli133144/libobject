@@ -37,7 +37,7 @@
 #include <libobject/net/client/client.h>
 #include <libobject/net/http/Response.h>
 #include <libobject/net/http/Client.h>
-#include <libobject/io/RingBuffer.h>
+#include <libobject/io/RBuffer.h>
 #include <libobject/net/socket/inet_tcp_socket.h>
 
 static int __construct(Client *client, char *init_str)
