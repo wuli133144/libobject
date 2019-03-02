@@ -76,8 +76,8 @@ static int __set(ConfigFile *config, char *attrib, void *value)
         config->load_file = value;
     } else if (strcmp(attrib, "get_value") == 0) {
         config->get_value = value;
-    } else if (strcmp(attrib, "parse_config_internal") == 0) {
-        config->parse_config_internal = value;
+    } else if (strcmp(attrib, "parse_line_internal") == 0) {
+        config->parse_line_internal = value;
     } 
     else {
         dbg_str(DBG_DETAIL,"config set, not support %s setting",attrib);
@@ -130,7 +130,7 @@ static int __load_file(ConfigFile * config,const char * name)
         len = strlen(buf);
         if (buf[len - 1] == '\n') { //读取完整一行
             buf[len - 1] = '\0';
-            ret = config->parse_config_internal(config,buf);
+            ret = config->parse_line_internal(config,buf);
             if (ret < 0) {
                 dbg_str(DBG_ERROR,"parse config failed");
                 goto error;
@@ -200,7 +200,7 @@ static char * __trim_space_line(char *buf)
     return p;
 }
 
-static int __parse_config_internal(ConfigFile * config,void *buf)
+static int __parse_line_internal(ConfigFile * config,void *buf)
 {
     int ret  = -1,len = 0 ,pos = 0,i = 0;
     char * p = NULL,*q = NULL;
@@ -232,7 +232,7 @@ static int __parse_config_internal(ConfigFile * config,void *buf)
 
     q = __trim_space_line(q);
     p = __trim_space_line(p);
-    len =strlen(q);
+    len = strlen(q);
 
     key = allocator_mem_alloc(allocator,sizeof(char)*len + 1);
 
@@ -296,7 +296,7 @@ static class_info_entry_t concurent_class_info[] = {
     [4 ] = {ENTRY_TYPE_FUNC_POINTER,"","deconstruct",__deconstrcut,sizeof(void *)},
     [5 ] = {ENTRY_TYPE_FUNC_POINTER,"","load_file",__load_file,sizeof(void *)},
     [6 ] = {ENTRY_TYPE_FUNC_POINTER,"","get_value",__get_value,sizeof(void *)},
-    [7 ] = {ENTRY_TYPE_FUNC_POINTER,"","parse_config_internal",__parse_config_internal,sizeof(void *)},
+    [7 ] = {ENTRY_TYPE_FUNC_POINTER,"","parse_line_internal",__parse_line_internal,sizeof(void *)},
     [8 ] = {ENTRY_TYPE_END},
 };
 REGISTER_CLASS("ConfigFile",concurent_class_info);

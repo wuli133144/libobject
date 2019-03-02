@@ -13,6 +13,11 @@ enum buffer_operation_flag_s{
     BUFFER_READ_OPERATION,
 };
 
+typedef enum rbuf_memory_model {
+    RBUF_MEMORY_STATIC = 1, //静态内存
+    RBUF_MEMORY_DYNAMIC ,   //动态内存调整
+}rbuf_memory_model_t;
+
 struct buffer_s{
 	Stream parent;
 
@@ -22,8 +27,8 @@ struct buffer_s{
     void *(*get)(void *obj, char *attrib);
 
 	/*virtual methods reimplement*/
-    int (*read)(Stream *, void *dst, int len);
-    int (*write)(Stream *, void *src, int len);
+    int (*read)(RBuffer*, void *dst, int len);
+    int (*write)(RBuffer *, void *src, int len);
     int (*size)(RBuffer *);
     int (*is_empty)(RBuffer*);
     /*int (*printf)(RBuffer *buffer, const char *fmt, ...);
@@ -38,6 +43,7 @@ struct buffer_s{
     int  (*has_used_size)(RBuffer*);
     int  (*free_size)(RBuffer*);
     
+    void (*set_model)(RBuffer *,rbuf_memory_model_t);
     void (*adapter_internal)(RBuffer*);
     int  (*expand_container)(RBuffer*,int len);
     /*attribs*/
@@ -49,6 +55,7 @@ struct buffer_s{
     int    capacity;       //总大小
     size_t ref_count;
     uint8_t last_operation_flag;
+    rbuf_memory_model_t model; //内存模型
 };
 
 #endif

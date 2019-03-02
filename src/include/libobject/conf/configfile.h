@@ -18,7 +18,7 @@ struct s_config_t {
 	int (*set)(ConfigFile *, char *attrib, void *value);
     void *(*get)(void *obj, char *attrib);
     
-    int (*parse_config_internal)(ConfigFile *,void *buf);
+    int (*parse_line_internal)(ConfigFile *,void *buf);
     int (*load_file)(ConfigFile *,const char * file);
     int (*get_value)(ConfigFile *,void *key,void **ele);
     /*attribute*/

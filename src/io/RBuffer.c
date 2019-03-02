@@ -37,7 +37,8 @@
 #include <libobject/io/RBuffer.h>
 #include <libobject/core/utils/registry/registry.h>
 #include <libobject/core/thread.h>
-#define DEFAULT_BUFFER_SIZE 1024
+
+#define DEFAULT_BUFFER_SIZE 2048
 
 static int __construct(RBuffer *self,char *init_str)
 {
@@ -60,6 +61,7 @@ static int __construct(RBuffer *self,char *init_str)
     self->available_size = self->capacity - 1;
     self->used_size      = 0;
     self->ref_count      = 1;
+    self->model          = RBUF_MEMORY_STATIC;
     return 0;
 }
 
@@ -109,7 +111,9 @@ static int __set(RBuffer *buffer, char *attrib, void *value)
         buffer->adapter_internal = value;
     } else if (strcmp(attrib, "expand_container") == 0) {
         buffer->expand_container = value;
-    } else {
+    }  else if (strcmp(attrib, "set_model") == 0) {
+        buffer->set_model = value;
+    }  else {
         dbg_str(EV_DETAIL,"buffer set, not support %s setting",attrib);
     }
 
@@ -251,7 +255,7 @@ static int __write(RBuffer *self, void *src, int len)
         return len;
     }
 
-    if (available_write_size < len ) {
+    if (available_write_size < len  && self->model == RBUF_MEMORY_DYNAMIC) {
         //extend space
         ret = self->expand_container(self,len);
         if (ret < 0) {
@@ -437,6 +441,11 @@ static int __move_unref(RBuffer *self,RBuffer*dst,size_t len)
     return -1;
 }
 
+static void __set_model(RBuffer * self,rbuf_memory_model_t model)
+{
+    self->model = model;
+}
+
 static class_info_entry_t buffer_class_info[] = {
     [0 ] = {ENTRY_TYPE_OBJ,"Stream","parent",NULL,sizeof(void *)},
     [1 ] = {ENTRY_TYPE_FUNC_POINTER,"","set",__set,sizeof(void *)},
@@ -457,7 +466,8 @@ static class_info_entry_t buffer_class_info[] = {
     [16] = {ENTRY_TYPE_VFUNC_POINTER,"","has_used_size", __has_used_size,sizeof(void *)},
     [17] = {ENTRY_TYPE_VFUNC_POINTER,"","free_size", __free_size,sizeof(void *)},
     [18] = {ENTRY_TYPE_VFUNC_POINTER,"","find", __find,sizeof(void *)},
-    [19] = {ENTRY_TYPE_END},
+    [19] = {ENTRY_TYPE_VFUNC_POINTER,"","set_model", __set_model,sizeof(void *)},
+    [20] = {ENTRY_TYPE_END},
 };
 REGISTER_CLASS("RBuffer",buffer_class_info);
 
@@ -768,6 +778,8 @@ static int test_rbuf_extend_space(TEST_ENTRY *entry)
     char dst[100]={0};
 
     in_buffer = OBJECT_NEW(allocator, RBuffer, NULL);
+    in_buffer->set_model(in_buffer,RBUF_MEMORY_DYNAMIC);
+    
     len = in_buffer->write(in_buffer,p,strlen(p));
     dbg_str(DBG_SUC,"current out_buffer: writed_size:%d used_size:%d avaiable_size:%d r_offset:%d w_offset:%d",
                 len,
