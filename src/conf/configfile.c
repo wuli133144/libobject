@@ -143,7 +143,8 @@ static int __load_file(ConfigFile * config,const char * name)
     }
 
 error:
-    fclose(fp);
+    if (fp)
+        fclose(fp);
     return -1;
 }
 
