@@ -142,6 +142,8 @@ static int __load_file(ConfigFile * config,const char * name)
 
     }
     
+    if (fp)
+        fclose(fp);
     return 0;
 error:
     if (fp)
