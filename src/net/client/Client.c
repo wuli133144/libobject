@@ -162,13 +162,13 @@ static int __close(Client *client)
 
 static int __setrecvbuffer(Client *client,int isze)
 {
-    Inet_Tcp_Socket *s  = client->socket;
+    Socket *s  = client->socket;
     return s->setrecvbuffer(s,isze);
 }
 
 static int __setsendbuffer(Client *client,int size)
 {
-    Inet_Tcp_Socket *s = client->socket;
+    Socket *s = client->socket;
     return s->setsendbuffer(s,size);
 }
 

@@ -189,12 +189,12 @@ __request(Http_Client *hc)
     return 0;
 }
 
-static Response * __request_sync(Http_Client *hc)
+static HTTP_CODE_T __request_sync(Http_Client *hc)
 {  
     allocator_t *allocator = hc->obj.allocator;
     Request *req;
     Response *resp;
-
+    HTTP_CODE_T code = HTTP_CODE_OK;
     int ret,len;
     char *host ,*port ,*request_ctx = NULL;
     int length = 4096;
@@ -216,22 +216,13 @@ static Response * __request_sync(Http_Client *hc)
     request_ctx = req->request_header_context->c_str(req->request_header_context);
     len         = req->request_header_context->size(req->request_header_context) ;
 
+    object_destroy(hc->c);
+    hc->c = OBJECT_NEW(allocator,Inet_Tcp_Client,NULL);
     if (!hc->c) {
-        hc->c = OBJECT_NEW(allocator,Inet_Tcp_Client,NULL);
-        if (!hc->c) {
             dbg_str(DBG_ERROR,"request_sync failed! ");
             goto error;
-        } 
-    } else {
-        object_destroy(hc->c);
-        hc->c = OBJECT_NEW(allocator,Inet_Tcp_Client,NULL);
-        if (!hc->c) {
-            dbg_str(DBG_ERROR,"request_sync failed! ");
-            goto error;
-        } 
-    }
-
-
+    } 
+   
     ret = client_connect_async(hc->c,host,port);
     if (ret != 0) {
         dbg_str(DBG_ERROR,"request_sync connect (%s %s) failed! ",host,port);
@@ -271,17 +262,18 @@ static Response * __request_sync(Http_Client *hc)
             #if 1
             ret = resp->parse_response_internal(resp);
             if (ret < 0) {
+                dbg_str(DBG_ERROR,"parse_response_internal recv success ");     
                 goto error;
             }
             #endif 
             client_close(hc->c);
             hc->reset(hc);
-            return resp;
+            return resp->code;
         } else if (ret == NET_SOCKET_SUCCESS) {
             #if 1
             ret = resp->response_parse(resp,stmpbuffer,length);
             if (ret < 0) {
-                dbg_str(DBG_ERROR,"request_sync parse response error ");
+                dbg_str(DBG_ERROR,"response_parse recv success ");     
                 goto error;
             }
             #endif  
@@ -291,7 +283,7 @@ static Response * __request_sync(Http_Client *hc)
 error:
     hc->reset(hc);
     client_close(hc->c);
-    return NULL; 
+    return HTTP_CODE_NO_SUPPORT; 
 }
 
 static int __set_opt(Http_Client *client,http_opt_t opt,void *value)
@@ -410,6 +402,7 @@ int test_http_client_sync(TEST_ENTRY *entry)
     int ret = 0 ;
     Http_Client *client;
     Response *response;
+    HTTP_CODE_T code;
     int t = 4;
     allocator_t *allocator = allocator_get_default_alloc();
     char *body = "hello world from libobject";
@@ -430,8 +423,12 @@ int test_http_client_sync(TEST_ENTRY *entry)
     #else 
     t = 1;
     while (t--) {
-            response = client->request_sync(client);
-
+            code = client->request_sync(client);
+            if(code != HTTP_CODE_OK) {
+                dbg_str(DBG_ERROR,"http request post failed %d",code);
+                break;
+            }
+            response = client->get_response(client);
             if ( response == NULL ) {
                 dbg_str(DBG_ERROR,"http request error!");
             }  else {
@@ -443,6 +440,7 @@ int test_http_client_sync(TEST_ENTRY *entry)
                                 response->response_context->c_str(response->response_context));
             }
             usleep(1000000);
+            t++;
     }
     #endif
 
@@ -524,8 +522,6 @@ int test_http_client_sync(TEST_ENTRY *entry)
     pause();
     return 1;
 }
-
-
 
 int test_http_client_post_json(TEST_ENTRY * entry)
 {

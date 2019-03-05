@@ -30,6 +30,7 @@
  * 
  */
 #include <stdio.h>
+#include <assert.h>
 #include <libobject/core/utils/dbg/debug.h>
 #include <libobject/core/utils/config/config.h>
 #include <libobject/core/utils/timeval/timeval.h>
@@ -46,6 +47,7 @@ static int __construct(Response *response,char *init_str)
     response->response_context = OBJECT_NEW(allocator,String,NULL);
     response->current_size  = 0;
     response->content_length = 0;
+    response->code = HTTP_CODE_OK;
     return 0;
 }
 
@@ -103,51 +105,238 @@ static int __set_buffer(Response *response, RBuffer *buffer)
     return 0;
 }
 
-static int __response_parse(Response *response,void *buffer,int len)
+static HTTP_CODE_T __get_http_code(int code)
 {
-    if (len < 0 || buffer == NULL ) {
-        dbg_str(DBG_ERROR,"http client recv failed! recv_len =%d buffer addr:%p ",len,buffer);
-        return -1;
+    HTTP_CODE_T ret ;
+    assert(code > 0);
+    switch (code)
+    {
+        case 200:
+            /* code */
+            ret = HTTP_CODE_OK;
+            break;
+        case 301:
+            ret = HTTP_CODE_REMOVED;
+            break;
+        case 400:
+            ret = HTTP_CODE_BAD_REQUEST;
+            break;
+        case 401:
+            ret = HTTP_CODE_NO_PERMISSTION;
+            break;
+        case 403:
+            ret = HTTP_CODE_FORBIDDEN;
+            break;
+        case 500:
+            ret = HTTP_CODE_SERVER_ERROR;
+            break;
+        case 502:
+            ret = HTTP_CODE_BAD_NETGATE;
+            break;
+        case 503:
+            ret = HTTP_CODE_BAD_SERVER;
+            break;
+        case 505:
+            ret = HTTP_CODE_NO_SUPPORT;
+            break;
+        default:
+            dbg_str(DBG_ERROR,"Unable to support response code = %d ",code);
+            break;
+    }
+    return ret;
+}
+
+// static int __read_line_internal(char * dest,int dest_len,char * src)
+// {
+//     int ret ,i,len = 0;
+//     assert(dest != NULL&&src != NULL && dest_len);
+//     len = strlen(src);
+//     len = len > dest_len ? dest_len:len;
+
+//     for(i  = 0;i< len; i++) {
+//         if (src[i] == '\n') {
+//             ret = i;
+//             break;
+//         }
+//     }
+    
+//     if (i >= len) {
+//         ret = -1;
+//         goto end;
+//     }
+
+//     i+=1;
+
+//     dest_len = i > dest_len ? dest_len:i;
+//     memcpy(dest,src,dest_len);
+//     dest[dest_len - 1] = '\0';
+//     ret = 0;
+// end:
+//     return ret;
+    
+// }
+
+static int __read_line_internal(char * dest,int dest_len,char * src,int len)
+{
+    int ret ,i = 0;
+    char * p,*q = NULL;
+    int pos = 0;
+    assert(dest != NULL&&src != NULL && dest_len && len);
+    q = src;
+    len = strlen(src);
+    len = len > dest_len ? dest_len:len;
+
+    p = strstr(src,"\r\n");
+    i = p - q;
+    if (i > dest_len - 1) {
+        ret = -1;
+        goto end;
     }
 
+    memcpy(dest,q,i);
+    dest[i] = '\0';
+
+    ret = 0;
+end:
+    return ret;
+    
+}
+
+static  char *  __lremove_space(char *p)
+{   
+    char * q = p;
+    int i ,len= 0;
+    assert(p != NULL);
+    len = strlen(p);
+
+    for (i = 0; i < len ;i++) {
+        if (p[i] == ' ') {
+            p = p + 1;
+        }else {
+            break;
+        }
+    }
+    return p;
+}
+
+static  char *  __rremove_space(char *p)
+{   
+    char * q = p;
+    int i ,len= 0;
+    assert(p != NULL);
+    len = strlen(p);
+
+    for (i = len -1; i > 0  ;i--) {
+        if (p[i] == ' ') {
+            p[i] = '\0';
+        }else {
+            break;
+        }
+    }
+    return p;
+}
+
+static int __parse_code_internal(char *buf,HTTP_CODE_T * code)
+{
+    int ret ,pos  = 0;
+    char * p ,*q  = buf;
+    char buff[10] = {0};
+
+    int len = strlen(buf);
+    assert(len);
+
+    p = strchr(buf,' ');
+    if (p == NULL) {
+        ret = -1;
+        goto end;
+    }
+
+    p = __lremove_space(p);
+    p = __rremove_space(p);
+    q = strchr(p,' ');
+    len = q - p;
+    strncpy(buff,p,len);
+    ret = atoi(buff);
+    *code = __get_http_code(ret);
+
+end:
+    return ret;
+}
+
+static int __get_http_context_len(char *buffer,int len)
+{
+    int ret ,i,pos = 0;
+    char * p,*q = NULL;
+    char * end = NULL;
+    char tmpbuf[10] = {0};
+
+    assert(buffer && len);
+    end = buffer + len -1;
+
+    p = strstr(buffer,"Content-Length:");
+    if (p == NULL) {
+        ret = -1;
+        goto end;
+    }
+
+    p = p + 15;
+    if (p > end) {
+        ret = -2;
+        goto end;
+    }
+
+    p = __lremove_space(p);
+    //q = strchr(p,'\n');
+    q = strstr(p,"\r\n");
+    i = q - p;
+
+    memcpy(tmpbuf,p,i);
+    __rremove_space(tmpbuf);
+    __lremove_space(tmpbuf);
+
+    ret = atoi(tmpbuf);
+end:
+    return ret;
+}
+
+static int __response_parse(Response *response,void *buffer,int len)
+{
+   
+    assert(buffer && len);
+    HTTP_CODE_T code = HTTP_CODE_OK;
     RBuffer *rbuffer = response->buffer;
-    int pos_start,pos_end,ret;
-    String *resp = response->response_context;
-    String *tmp = NULL;
-    String *tmpbuffer = NULL;
+    int ret = 0;
 
     if (len) {
         rbuffer->write(rbuffer,buffer,len);
     }
 
     if (!response->content_length) {
-       resp->assign(resp,buffer);
-       pos_end = resp->find_cstr(resp,"\r\n",0);
-       tmpbuffer = resp->substr(resp,0,pos_end);
-       ret = tmpbuffer->find_cstr(tmpbuffer,"200",0);
+       #if 1
+       char buffline[1024] = {0};
 
+       ret = __read_line_internal(buffline,1024,buffer,len);
        if (ret < 0) {
-           dbg_str(DBG_ERROR,"http response status error");
-           object_destroy(tmp);
-           object_destroy(tmpbuffer);
-           return ret;
+           dbg_str(DBG_ERROR,"read_line_internal error %d ",ret);
+           goto end;
        }
-
-       pos_start = resp->find_cstr(resp,"Content-Length:",0);
-       pos_end   = resp->find_cstr(resp,"\r\n",pos_start+15);
-       tmp = resp->substr(resp,pos_start+15,pos_end-(pos_start+15));
-       tmp->trim(tmp);
-       response->content_length = atoi(tmp->c_str(tmp));
-       resp->clear(resp);
-       tmp->clear(tmp);
-       object_destroy(tmp);
-       object_destroy(tmpbuffer);
-
-       tmp = NULL;
+       ret = __parse_code_internal(buffline,&code);
+       if (ret < 0) {
+           dbg_str(DBG_ERROR,"parse_code_internal error %d ",ret);
+           goto end;
+       }
+       response->code = code;
+       ret = __get_http_context_len(buffer,len);
+       if (ret < 0) {
+           dbg_str(DBG_ERROR,"get_context_len error %d ",ret);
+           goto end;
+       }
+       response->content_length = ret;
+       #endif 
     }
-
+end:
     response->current_size = rbuffer->has_used_size(rbuffer);
-    return len;
+    return ret;
 }
 
 static int __parse_response_internal(Response *response)

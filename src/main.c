@@ -110,7 +110,6 @@ static cmd_config_t cmds[] = {
 int main(int argc, char *argv[])
 {
     int ret = 0;
-
     /*
      *libobject_set_run_path("./");
      */

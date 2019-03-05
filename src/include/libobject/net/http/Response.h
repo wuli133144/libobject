@@ -6,17 +6,21 @@
 #include <libobject/core/obj.h>
 #include <libobject/io/RBuffer.h>
 #include <libobject/core/string.h>
-typedef enum response_status
+
+//http 常用返回返回码
+typedef enum HTTP_CODE_E
 {
-    /* data */
-    response_success,
-    response_timeout,
-    response_ok,
-    response_server_error,
-    response_connect_error,
-    response_bad_request,
-    response_redirect
-}response_status_t;
+    HTTP_CODE_OK               = 200,  //请求成功
+    HTTP_CODE_REMOVED          = 301,  //永久性移除
+    HTTP_CODE_BAD_REQUEST      = 400,  //服务器不理解请求格式
+    HTTP_CODE_NO_PERMISSTION   = 401,
+    HTTP_CODE_FORBIDDEN        = 403,
+    HTTP_CODE_SERVER_ERROR     = 500,  //服务器内部错误
+    HTTP_CODE_BAD_NETGATE      = 502,
+    HTTP_CODE_BAD_SERVER       = 503,
+    HTTP_CODE_NO_SUPPORT       = 505
+
+}HTTP_CODE_T;
 
 typedef struct response_s Response;
 
@@ -35,9 +39,9 @@ struct response_s{
     int (*parse_response_internal)(Response *);
     int current_size;
     int content_length;
-    response_status_t response_status;
     RBuffer *buffer;
-    String *response_context;
+    HTTP_CODE_T code;
+    String * response_context;
 };
 
 #endif
