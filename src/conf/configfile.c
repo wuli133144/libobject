@@ -324,32 +324,26 @@ static int test_config_file(TEST_ENTRY *entry)
     if (ret >= 0) {
         dbg_str(DBG_SUC,"key:ip value:%s",(char *)value);
     }
-
     ret = config->get_value(config,"name",(void**)&value);
     if (ret >= 0) {
         dbg_str(DBG_SUC,"key:ip value:%s",(char *)value);
     }
-
     ret = config->get_value(config,"port",(void**)&value);
     if (ret >= 0) {
         dbg_str(DBG_SUC,"key:ip value:%s",(char *)value);
     }
-
     ret = config->get_value(config,"xxxx",(void**)&value);
     if (ret >= 0) {
         dbg_str(DBG_SUC,"key:ip value:%s",(char *)value);
     }
-
     ret = config->get_value(config,"listen",(void**)&value);
     if (ret >= 0) {
         dbg_str(DBG_SUC,"key:ip value:%s",(char *)value);
     }
-
     ret = config->get_value(config,"xxxxxxxxx",(void**)&value);
     if (ret >= 0) {
         dbg_str(DBG_SUC,"key:ip value:%s",(char *)value);
     }
-
     ret = config->get_value(config,"password",(void**)&value);
     if (ret >= 0) {
         dbg_str(DBG_SUC,"key:ip value:%s",(char *)value);

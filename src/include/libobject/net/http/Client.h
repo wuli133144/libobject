@@ -24,7 +24,7 @@ struct http_client_s{
     Request *(*get_request)(Http_Client *client);
     Response *(*get_response)(Http_Client *client);
     int (*request)(Http_Client *client);
-    Response *(*request_sync)(Http_Client *client);
+    HTTP_CODE_T (*request_sync)(Http_Client *client);
     int (*set_opt)(Http_Client *client,http_opt_t,void *);
     void (*reset)(Http_Client *client);
     /*attribs*/
