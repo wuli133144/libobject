@@ -22,22 +22,22 @@ option (MODULE_UI "ui module" OFF)
 option (MODULE_BUS "bus module" OFF)
 
 # add compile paramater 
-if(CMAKE_COMPILER_IS_GNUC)
-    add_compile_options("-O0 -g -fPIC -Wall -Wno-return-type
-     -Wno-unused-variable
-     -Wno-unused-function
-     -Wno-sometimes-uninitialized 
-     -Wno-char-subscripts 
-     -Wno-sometimes-uninitialized 
-     -Wno-unused-label 
-     -Wno-uninitialized 
-     -Wno-int-conversion 
-     -Wno-implicit-function-declaration
-     -Wno-uninitialized
-     -Wno-dev")
+if(CMAKE_COMPILER_IS_GNUCC)
+#add_compile_options("-g -fPIC -Wall")
+# -Wno-unused-variable
+# -Wno-unused-function
+# -Wno-sometimes-uninitialized
+# -Wno-char-subscripts
+# -Wno-sometimes-uninitialized
+# -Wno-unused-label
+# -Wno-uninitialized
+# -Wno-int-conversion
+# -Wno-implicit-function-declaration
+# -Wno-uninitialized
+# -Wno-dev")
 else()
     message(ERROR_FATAL,"compiler_c not support exit")
-endif(CMAKE_COMPILER_GNUC)
+endif(CMAKE_COMPILER_GNUCC)
 
 #add_subdirectory(src)
 find_source_files(Source_Files)
@@ -54,9 +54,10 @@ if (MODULE_UI)
     SET(ExternalLibs ${ExternalLibs} SDL2 SDL2_ttf)
 else ()
     message(WARNING "-- Turn ui module off-----------")
-    #find_module_files(Exclude_UI_Module_Files ui)
-    #message("${Exclude_UI_Module_Files}")
-    #exclude_files(Source_Files "${Source_Files}" "${Exclude_UI_Module_Files}")
+    find_module_files(Exclude_UI_Module_Files ui)
+    #message(ERROR_FATAL "${Exclude_UI_Module_Files}")
+    #message(ERROR_FATAL "${Source_Files}")
+    exclude_files(Source_Files "${Source_Files}" "${Exclude_UI_Module_Files}")
     #message("sources exclude ui module: ${Source_Files}")
 endif ()
 
@@ -69,13 +70,15 @@ else ()
     exclude_files(Source_Files "${Source_Files}" "${Exclude_BUS_Module_Files}")
 endif ()
 
-ADD_LIBRARY (object SHARED ${Source_Files})
+ADD_LIBRARY(object SHARED ${Source_Files})
 
 if(EXISTS "${ExternalLibs}")
     message(STATUS "depend_lib:${ExternalLibs}")
     target_link_libraries(object ${ExternalLibs})
 else()
     message(STATUS "not found depend_lib ExternalLibs")
+    SET(ExternalLibs ${ExternalLibs} pthread m )
+    target_link_libraries(object ${ExternalLibs})
 endif(EXISTS "${ExternalLibs}")
 
 add_executable(test ${Main_File})

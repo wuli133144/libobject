@@ -5,6 +5,7 @@
  * @version 1
  * @date 2016-11-21
  */
+#if 0
 #include <stdio.h>
 #include <libobject/core/utils/dbg/debug.h>
 #include <libobject/ui/subject.h>
@@ -135,3 +136,4 @@ void test_obj_enemy()
 }
 
 
+#endif 

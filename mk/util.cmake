@@ -3,7 +3,7 @@ function (test arg)
 endfunction()
 
 function (find_source_files ret)
-    file(GLOB_RECURSE files ${PROJECT_SOURCE_DIR}/src/*.c)
+    file(GLOB_RECURSE files ${PROJECT_SOURCE_DIR}/src/ *.c)
     set(${ret} ${files} PARENT_SCOPE)
 endfunction()
 
@@ -13,7 +13,7 @@ function (find_main_file ret)
 endfunction()
 
 function (find_module_files ret module_name)
-    file(GLOB_RECURSE files */${module_name}/*.c)
+    file(GLOB_RECURSE files ${PROJECT_SOURCE_DIR}/src/${module_name}/*.c)
     set(${ret} ${files} PARENT_SCOPE)
 endfunction()
 
