@@ -18,17 +18,26 @@ display_configs("${PLATFORM}")
 #find_package(opengl)
 #find_package(CURL)
 
-option (MODULE_UI "ui module" ON)
+option (MODULE_UI "ui module" OFF)
 option (MODULE_BUS "bus module" OFF)
 
 # add compile paramater 
-add_definitions(-DDEBUG)
-add_definitions(-O0 -g)
-add_definitions(-fPIC)
-add_definitions("-Wall -Wno-return-type -Wno-unused-variable -Wno-unused-function
-                 -Wno-sometimes-uninitialized -Wno-char-subscripts -Wno-sometimes-uninitialized 
-                 -Wno-unused-label -Wno-uninitialized -Wno-int-conversion -Wno-implicit-function-declaration
-                 -Wno-uninitialized")
+if(CMAKE_COMPILER_IS_GNUC)
+    add_compile_options("-O0 -g -fPIC -Wall -Wno-return-type
+     -Wno-unused-variable
+     -Wno-unused-function
+     -Wno-sometimes-uninitialized 
+     -Wno-char-subscripts 
+     -Wno-sometimes-uninitialized 
+     -Wno-unused-label 
+     -Wno-uninitialized 
+     -Wno-int-conversion 
+     -Wno-implicit-function-declaration
+     -Wno-uninitialized
+     -Wno-dev")
+else()
+    message(ERROR_FATAL,"compiler_c not support exit")
+endif(CMAKE_COMPILER_GNUC)
 
 #add_subdirectory(src)
 find_source_files(Source_Files)
@@ -44,10 +53,10 @@ if (MODULE_UI)
     #find_package(SDL2 REQUIRED)
     SET(ExternalLibs ${ExternalLibs} SDL2 SDL2_ttf)
 else ()
-    message("-- Turn ui module off")
-    find_module_files(Exclude_UI_Module_Files ui)
+    message(WARNING "-- Turn ui module off-----------")
+    #find_module_files(Exclude_UI_Module_Files ui)
     #message("${Exclude_UI_Module_Files}")
-    exclude_files(Source_Files "${Source_Files}" "${Exclude_UI_Module_Files}")
+    #exclude_files(Source_Files "${Source_Files}" "${Exclude_UI_Module_Files}")
     #message("sources exclude ui module: ${Source_Files}")
 endif ()
 
@@ -57,14 +66,17 @@ if (MODULE_BUS)
 else ()
     message("-- Turn bus module off")
     find_module_files(Exclude_BUS_Module_Files bus)
-    #message("${Exclude_UI_Module_Files}")
     exclude_files(Source_Files "${Source_Files}" "${Exclude_BUS_Module_Files}")
-    #message("sources exclude bus module: ${Source_Files}")
 endif ()
 
 ADD_LIBRARY (object SHARED ${Source_Files})
-target_link_libraries(object ${ExternalLibs})
-message("ExternalLibs :${ExternalLibs}")
+
+if(EXISTS "${ExternalLibs}")
+    message(STATUS "depend_lib:${ExternalLibs}")
+    target_link_libraries(object ${ExternalLibs})
+else()
+    message(STATUS "not found depend_lib ExternalLibs")
+endif(EXISTS "${ExternalLibs}")
 
 add_executable(test ${Main_File})
 target_link_libraries(test object)
