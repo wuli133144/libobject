@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <libobject/core/utils/dbg/debug.h>
 #include <libobject/core/utils/dbg/debug_businesses.h>
 #include <libobject/core/utils/config/config.h>
@@ -143,7 +144,7 @@ static json_object * parsejson(Config * conf)
     pjson = json_object_from_file(pfile);
     if (!pjson) {
         dbg_str(CONFIG_ERROR,"config PARSE JSON failed");
-        return -1; 
+        return NULL; 
     }
     return pjson;
 }
@@ -159,3 +160,20 @@ static class_info_entry_t Config_class_info[] = {
     [7 ] = {ENTRY_TYPE_END}, 
 };
 REGISTER_CLASS("Config", Config_class_info);
+
+
+static inline int test_create_json_config()
+{
+    Config *conf = NULL;
+    int ret = 0;
+    allocator_t *allocator = allocator_get_default_alloc();
+    conf = OBJECT_NEW(allocator, Config, NULL);
+
+    ret = conf->load(conf,"./conf.json");
+    ret == -1? 0:1;
+    assert_int_equal(ret,-1);
+    object_destroy(conf);
+    return 1;
+}
+
+REGISTER_STANDALONE_TEST_FUNC(test_create_json_config);

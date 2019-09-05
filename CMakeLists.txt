@@ -28,7 +28,8 @@ else()
     # lots of warnings and all warnings as errors
     if(CMAKE_COMPILER_IS_GNUCC)
         # add compile paramater 
-        add_compile_options( -std=c99 -g -fPIC -Wall -Wextra
+        add_compile_options( 
+        -std=gnu99 -g -fPIC -Wall -Wextra
         -Wno-unused-but-set-variable 
         -Wno-unused-variable
         -Wno-unused-function
@@ -82,7 +83,7 @@ if(EXISTS "${ExternalLibs}")
     target_link_libraries(object ${ExternalLibs})
 else()
     message(STATUS "not found depend_lib ExternalLibs")
-    SET(ExternalLibs ${ExternalLibs} pthread m )
+    SET(ExternalLibs ${ExternalLibs} pthread m json)
     target_link_libraries(object ${ExternalLibs})
 endif(EXISTS "${ExternalLibs}")
 
