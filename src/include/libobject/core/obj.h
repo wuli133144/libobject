@@ -4,6 +4,9 @@
 #include <libobject/core/class_deamon.h>
 #include <libobject/core/object.h>
 
+#define    PUBLIC
+#define    PRIVITE
+
 typedef struct obj_s Obj;
 struct obj_s{
 	allocator_t *allocator;

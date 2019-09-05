@@ -1,0 +1,1 @@
+/usr/bin/cc  -g    CMakeFiles/test.dir/src/main.c.o  -o bin/linux/test  -L/usr/local/lib  -L/usr/local/libobject/lib -rdynamic lib/linux/libobject.so.1.2 -lpthread -lm -Wl,-rpath,/usr/local/libobject/lib/linux:/usr/local/lib:/usr/local/libobject/lib: 

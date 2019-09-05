@@ -28,7 +28,7 @@ else()
     # lots of warnings and all warnings as errors
     if(CMAKE_COMPILER_IS_GNUCC)
         # add compile paramater 
-        add_compile_options(-g -fPIC -Wall  -Wextra
+        add_compile_options( -std=c99 -g -fPIC -Wall -Wextra
         -Wno-unused-but-set-variable 
         -Wno-unused-variable
         -Wno-unused-function
@@ -96,8 +96,6 @@ target_link_libraries(test object)
 #set_target_properties(object_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
 SET_TARGET_PROPERTIES (object PROPERTIES VERSION 1.2 SOVERSION 1)
 
-
 install (TARGETS test DESTINATION bin)
 install (DIRECTORY ${LIBRARY_DIR_PATH} DESTINATION lib)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/include/libobject DESTINATION include)
-

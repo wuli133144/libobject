@@ -1,0 +1,2 @@
+/usr/local/libobject/CMakeFiles/object.dir
+/usr/local/libobject/CMakeFiles/test.dir
