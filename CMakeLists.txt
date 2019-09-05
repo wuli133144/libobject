@@ -21,23 +21,28 @@ display_configs("${PLATFORM}")
 option (MODULE_UI "ui module" OFF)
 option (MODULE_BUS "bus module" OFF)
 
-# add compile paramater 
-if(CMAKE_COMPILER_IS_GNUCC)
-#add_compile_options("-g -fPIC -Wall")
-# -Wno-unused-variable
-# -Wno-unused-function
-# -Wno-sometimes-uninitialized
-# -Wno-char-subscripts
-# -Wno-sometimes-uninitialized
-# -Wno-unused-label
-# -Wno-uninitialized
-# -Wno-int-conversion
-# -Wno-implicit-function-declaration
-# -Wno-uninitialized
-# -Wno-dev")
+if (MSVC)
+    # warning level 4 and all warnings as errors
+    add_compile_options(/W4 /WX)
 else()
+    # lots of warnings and all warnings as errors
+    if(CMAKE_COMPILER_IS_GNUCC)
+        # add compile paramater 
+        add_compile_options(-g -fPIC -Wall  -Wextra
+        -Wno-unused-but-set-variable 
+        -Wno-unused-variable
+        -Wno-unused-function
+        -Wno-char-subscripts
+        -Wno-unused-label
+        -Wno-return-type
+        -Wno-uninitialized
+        -Wno-unused-parameter
+        -Wno-missing-field-initializers
+        -Wno-implicit-function-declaration)
+    else()
     message(ERROR_FATAL,"compiler_c not support exit")
-endif(CMAKE_COMPILER_GNUCC)
+    endif(CMAKE_COMPILER_GNUCC)
+endif()
 
 #add_subdirectory(src)
 find_source_files(Source_Files)

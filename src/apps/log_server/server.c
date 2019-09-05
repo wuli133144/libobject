@@ -10,6 +10,7 @@ static int test_work_callback(void *task)
 {
     net_task_t *t = (net_task_t *)task;
     dbg_str(DBG_DETAIL,"%s", t->buf);
+    return 0;
 }
 
 void log_server()

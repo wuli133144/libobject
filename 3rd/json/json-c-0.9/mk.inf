@@ -1,0 +1,7 @@
+
+INCDIR = cp/json
+#LINKS = arc4random.c epoll_sub.c
+
+HDRS =  arraylist.h  bits.h  debug.h  json.h  json_object.h  json_object_private.h  \
+		json_tokener.h  json_util.h  linkhash.h  printbuf.h
+
